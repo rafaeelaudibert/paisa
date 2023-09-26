@@ -86,7 +86,7 @@
           <svg
             class:is-not-visible={isEmpty}
             id="d3-expense-flow"
-            height={window.innerHeight - 100}
+            height={window.innerHeight - 175}
           />
         </div>
       </div>

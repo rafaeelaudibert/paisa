@@ -281,7 +281,7 @@ export function renderMonthlyFlow(
 export function renderFlow(graph: Graph, cashflowType: string) {
   const id = "#d3-expense-flow";
   const svg = d3.select(id);
-  const margin = { top: 60, right: 40, bottom: 40, left: 40 },
+  const margin = { top: 20, right: 20, bottom: 0, left: 20 },
     width =
       document.getElementById(id.substring(1)).parentElement.clientWidth -
       margin.left -
@@ -433,5 +433,6 @@ function name(node: Node, cashflowType: string) {
   ) {
     return lastName(node.name);
   }
+
   return restName(node.name);
 }
