@@ -123,7 +123,8 @@ type Config struct {
 
 	Commodities []Commodity `json:"commodities" yaml:"commodities"`
 
-	ImportTemplates []ImportTemplate `json:"import_templates" yaml:"import_templates"`
+	DisplayBuiltinTemplates bool             `json:"display_builtin_templates" yaml:"display_builtin_templates"`
+	ImportTemplates         []ImportTemplate `json:"import_templates" yaml:"import_templates"`
 
 	Accounts []Account `json:"accounts" yaml:"accounts"`
 
@@ -144,6 +145,7 @@ var defaultConfig = Config{
 	ScheduleALs:                []ScheduleAL{},
 	AllocationTargets:          []AllocationTarget{},
 	Commodities:                []Commodity{},
+	DisplayBuiltinTemplates:    false,
 	ImportTemplates:            []ImportTemplate{},
 	Accounts:                   []Account{},
 	Goals:                      Goals{Retirement: []RetirementGoal{}, Savings: []SavingsGoal{}},

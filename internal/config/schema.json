@@ -299,6 +299,11 @@
         "additionalProperties": false
       }
     },
+    "display_builtin_templates": {
+      "description": "Whether we should display the builtin templates in the UI or not",
+      "type": "boolean",
+      "ui:widget": "hidden"
+    },
     "import_templates": {
       "type": "array",
       "default": [
