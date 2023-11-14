@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "embed"
@@ -34,8 +35,21 @@ const (
 	MutualFund CommodityType = "mutualfund"
 	NPS        CommodityType = "nps"
 	Stock      CommodityType = "stock"
+	Metal      CommodityType = "metal"
 	Unknown    CommodityType = "unknown"
 )
+
+type BoolType string
+
+const (
+	Yes BoolType = "yes"
+	No  BoolType = "no"
+)
+
+type ImportTemplate struct {
+	Name    string `json:"name" yaml:"name"`
+	Content string `json:"content" yaml:"content"`
+}
 
 type Price struct {
 	Provider string `json:"provider" yaml:"provider"`
@@ -50,16 +64,39 @@ type Commodity struct {
 	TaxCategory TaxCategoryType `json:"tax_category" yaml:"tax_category"`
 }
 
-type Retirement struct {
+type Account struct {
+	Name string `json:"name" yaml:"name"`
+	Icon string `json:"icon" yaml:"icon"`
+}
+
+type Goals struct {
+	Retirement []RetirementGoal `json:"retirement" yaml:"retirement"`
+	Savings    []SavingsGoal    `json:"savings" yaml:"savings"`
+}
+
+type RetirementGoal struct {
+	Name           string   `json:"name" yaml:"name"`
+	Icon           string   `json:"icon" yaml:"icon"`
 	SWR            float64  `json:"swr" yaml:"swr"`
 	Expenses       []string `json:"expenses" yaml:"expenses"`
 	Savings        []string `json:"savings" yaml:"savings"`
 	YearlyExpenses float64  `json:"yearly_expenses" yaml:"yearly_expenses"`
 }
 
+type SavingsGoal struct {
+	Name     string   `json:"name" yaml:"name"`
+	Icon     string   `json:"icon" yaml:"icon"`
+	Target   float64  `json:"target" yaml:"target"`
+	Accounts []string `json:"accounts" yaml:"accounts"`
+}
+
 type ScheduleAL struct {
 	Code     string   `json:"code" yaml:"code"`
 	Accounts []string `json:"accounts" yaml:"accounts"`
+}
+
+type Budget struct {
+	Rollover BoolType `json:"rollover" yaml:"rollover"`
 }
 
 type AllocationTarget struct {
@@ -71,32 +108,92 @@ type AllocationTarget struct {
 type Config struct {
 	JournalPath                string     `json:"journal_path" yaml:"journal_path"`
 	DBPath                     string     `json:"db_path" yaml:"db_path"`
+	Readonly                   bool       `json:"readonly" yaml:"readonly"`
 	LedgerCli                  string     `json:"ledger_cli" yaml:"ledger_cli"`
 	DefaultCurrency            string     `json:"default_currency" yaml:"default_currency"`
+	DisplayPrecision           int        `json:"display_precision" yaml:"display_precision"`
 	Locale                     string     `json:"locale" yaml:"locale"`
 	FinancialYearStartingMonth time.Month `json:"financial_year_starting_month" yaml:"financial_year_starting_month"`
 
-	Retirement Retirement `json:"retirement" yaml:"retirement"`
+	Budget Budget `json:"budget" yaml:"budget"`
 
 	ScheduleALs []ScheduleAL `json:"schedule_al" yaml:"schedule_al"`
 
 	AllocationTargets []AllocationTarget `json:"allocation_targets" yaml:"allocation_targets"`
 
 	Commodities []Commodity `json:"commodities" yaml:"commodities"`
+
+	ImportTemplates []ImportTemplate `json:"import_templates" yaml:"import_templates"`
+
+	Accounts []Account `json:"accounts" yaml:"accounts"`
+
+	Goals Goals `json:"goals" yaml:"goals"`
 }
 
 var config Config
 var configPath string
 
 var defaultConfig = Config{
+	Readonly:                   false,
 	LedgerCli:                  "ledger",
 	DefaultCurrency:            "INR",
+	DisplayPrecision:           0,
 	Locale:                     "en-IN",
-	Retirement:                 Retirement{SWR: 4, Savings: []string{"Assets:*"}, Expenses: []string{"Expenses:*"}, YearlyExpenses: 0},
+	Budget:                     Budget{Rollover: Yes},
 	FinancialYearStartingMonth: 4,
 	ScheduleALs:                []ScheduleAL{},
 	AllocationTargets:          []AllocationTarget{},
 	Commodities:                []Commodity{},
+	ImportTemplates:            []ImportTemplate{},
+	Accounts:                   []Account{},
+	Goals:                      Goals{Retirement: []RetirementGoal{}, Savings: []SavingsGoal{}},
+}
+
+var itemsUniquePropertiesMeta = jsonschema.MustCompileString("itemsUniqueProperties.json", `{
+  "properties": {
+    "itemsUniqueProperties": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    }
+  }
+}`)
+
+type itemsUniquePropertiesSchema []string
+type itemsUniquePropertiessCompiler struct{}
+
+func (itemsUniquePropertiessCompiler) Compile(ctx jsonschema.CompilerContext, m map[string]interface{}) (jsonschema.ExtSchema, error) {
+
+	if items, ok := m["itemsUniqueProperties"]; ok {
+		itemsInterface := items.([]interface{})
+		itemsString := make([]string, len(itemsInterface))
+		for i, v := range itemsInterface {
+			itemsString[i] = v.(string)
+		}
+		return itemsUniquePropertiesSchema(itemsString), nil
+	}
+
+	return nil, nil
+}
+
+func (s itemsUniquePropertiesSchema) Validate(ctx jsonschema.ValidationContext, v interface{}) error {
+	for _, uniqueProperty := range s {
+		items := v.([]interface{})
+		seen := make(map[string]bool)
+		for _, item := range items {
+			itemMap := item.(map[string]interface{})
+			if _, ok := itemMap[uniqueProperty]; ok {
+				value := itemMap[uniqueProperty].(string)
+				if seen[value] {
+					return ctx.Error("itemsUniqueProperty", "duplicate %s %s", uniqueProperty, value)
+				}
+				seen[value] = true
+			}
+		}
+	}
+	return nil
 }
 
 //go:embed schema.json
@@ -104,7 +201,22 @@ var SchemaJson string
 var schema *jsonschema.Schema
 
 func init() {
-	schema = jsonschema.MustCompileString("", SchemaJson)
+	c := jsonschema.NewCompiler()
+	c.RegisterExtension("itemsUniqueProperties", itemsUniquePropertiesMeta, itemsUniquePropertiessCompiler{})
+	err := c.AddResource("schema.json", strings.NewReader(SchemaJson))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	schema = c.MustCompile("schema.json")
+}
+
+func SaveConfigObject(config Config) error {
+	content, err := yaml.Marshal(config)
+	if err != nil {
+		return err
+	}
+	return SaveConfig(content)
 }
 
 func SaveConfig(content []byte) error {
@@ -170,16 +282,6 @@ func LoadConfig(content []byte, cp string) error {
 		return err
 	}
 
-	journalDir := filepath.Dir(configPath)
-
-	if !filepath.IsAbs(config.JournalPath) {
-		config.JournalPath = filepath.Join(journalDir, config.JournalPath)
-	}
-
-	if !filepath.IsAbs(config.DBPath) {
-		config.DBPath = filepath.Join(journalDir, config.DBPath)
-	}
-
 	if cp != "" && configPath == "" {
 		configPath = cp
 	}
@@ -189,6 +291,22 @@ func LoadConfig(content []byte, cp string) error {
 
 func GetConfig() Config {
 	return config
+}
+
+func GetJournalPath() string {
+	if !filepath.IsAbs(config.JournalPath) {
+		return filepath.Join(GetConfigDir(), config.JournalPath)
+	}
+
+	return config.JournalPath
+}
+
+func GetDBPath() string {
+	if !filepath.IsAbs(config.DBPath) {
+		return filepath.Join(GetConfigDir(), config.DBPath)
+	}
+
+	return config.DBPath
 }
 
 func GetConfigDir() string {

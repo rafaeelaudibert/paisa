@@ -23,9 +23,11 @@
 </div>
 
 <style lang="scss">
+  @import "bulma/sass/utilities/_all.sass";
+
   .heading {
     font-weight: 400 !important;
-    font-size: 14px !important;
+    font-size: 1rem !important;
     text-transform: capitalize !important;
     letter-spacing: normal !important;
     margin-bottom: 0 !important;
@@ -33,11 +35,18 @@
 
   .title {
     font-weight: 800 !important;
-    font-size: 2.25rem !important;
-    line-height: 2.5rem !important;
+    font-size: 1.75rem !important;
+    line-height: 2rem !important;
     padding-left: 0 !important;
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
+  }
+
+  @include desktop {
+    .title {
+      font-size: 2.25rem !important;
+      line-height: 2.5rem !important;
+    }
   }
 
   .sub-title {

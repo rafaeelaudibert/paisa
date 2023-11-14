@@ -56,7 +56,11 @@ func FilterByGlob(postings []posting.Posting, accounts []string) []posting.Posti
 				accountGlob = accountGlob[1:]
 			}
 
-			match, err := filepath.Match(accountGlob, p.Account)
+			account := p.Account
+			if service.IsCapitalGains(p) {
+				account = service.CapitalGainsSourceAccount(p.Account)
+			}
+			match, err := filepath.Match(accountGlob, account)
 			if err != nil {
 				log.Fatal("Invalid account glob used for filtering", accountGlob, err)
 			}
@@ -169,4 +173,10 @@ func RunningBalance(db *gorm.DB, postings []posting.Posting) []Point {
 		series = append(series, Point{Date: start, Value: balance})
 	}
 	return series
+}
+
+func GroupByAccount(posts []posting.Posting) map[string][]posting.Posting {
+	return lo.GroupBy(posts, func(post posting.Posting) string {
+		return post.Account
+	})
 }

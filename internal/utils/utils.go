@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ananthakumaran/paisa/internal/config"
-	"github.com/ananthakumaran/paisa/internal/model/posting"
 	"github.com/google/btree"
 	"github.com/onrik/gorm-logrus"
 	"github.com/samber/lo"
@@ -88,11 +87,15 @@ func IsWithDate(date time.Time, start time.Time, end time.Time) bool {
 	return (date.Equal(start) || date.After(start)) && (date.Before(end) || date.Equal(end))
 }
 
+func IsSameDate(a time.Time, b time.Time) bool {
+	return a.Year() == b.Year() && a.Month() == b.Month() && a.Day() == b.Day()
+}
+
 func EndOfDay(date time.Time) time.Time {
 	return toDate(date).AddDate(0, 0, 1).Add(-time.Nanosecond)
 }
 
-var now *time.Time
+var now time.Time
 
 func SetNow(date string) {
 	t, err := time.ParseInLocation("2006-01-02", date, time.Local)
@@ -100,14 +103,18 @@ func SetNow(date string) {
 		log.Fatal(err)
 	}
 	log.Infof("Setting now to %s", t)
-	now = &t
+	now = t
 }
 
 func Now() time.Time {
-	if now != nil {
-		return *now
+	if !now.Equal(time.Time{}) {
+		return now
 	}
 	return time.Now()
+}
+
+func IsNowDefined() bool {
+	return !now.Equal(time.Time{})
 }
 
 func EndOfToday() time.Time {
@@ -123,6 +130,10 @@ func IsSameOrParent(account string, comparison string) bool {
 		return true
 	}
 
+	return strings.HasPrefix(account, comparison+":")
+}
+
+func IsParent(account string, comparison string) bool {
 	return strings.HasPrefix(account, comparison+":")
 }
 
@@ -144,12 +155,6 @@ func MaxTime(a time.Time, b time.Time) time.Time {
 	} else {
 		return b
 	}
-}
-
-func GroupByAccount(posts []posting.Posting) map[string][]posting.Posting {
-	return lo.GroupBy(posts, func(post posting.Posting) string {
-		return post.Account
-	})
 }
 
 type GroupableByDate interface {
@@ -218,6 +223,10 @@ func UnQuote(str string) string {
 }
 
 func OpenDB() (*gorm.DB, error) {
-	db, err := gorm.Open(sqlite.Open(config.GetConfig().DBPath), &gorm.Config{Logger: gorm_logrus.New()})
+	db, err := gorm.Open(sqlite.Open(config.GetDBPath()), &gorm.Config{Logger: gorm_logrus.New()})
 	return db, err
+}
+
+func Dos2Unix(str string) string {
+	return strings.ReplaceAll(str, "\r\n", "\n")
 }

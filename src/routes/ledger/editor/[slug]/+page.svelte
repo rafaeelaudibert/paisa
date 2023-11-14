@@ -106,7 +106,7 @@
       toast.toast({
         message: `Failed to save ${selectedFile.name}. reason: ${message}`,
         type: "is-danger",
-        duration: 5000
+        duration: 10000
       });
       if (!_.isEmpty(errors)) {
         moveToLine(editor, errors[0].line_from);
@@ -176,7 +176,7 @@
       toast.toast({
         message: `Failed to create ${destinationFile}. reason: ${message}`,
         type: "is-danger",
-        duration: 5000
+        duration: 10000
       });
     }
   }
@@ -184,11 +184,11 @@
 
 <FileModal bind:open={modalOpen} on:save={(e) => createFile(e.detail)} label="Create" help="" />
 
-<section class="section tab-editor" style="padding-bottom: 0 !important">
+<section class="section tab-editor max-h-screen" style="padding-bottom: 0 !important">
   <div class="container is-fluid">
     <div class="columuns">
       <div class="column is-12 px-0 pt-0 mb-2">
-        <div class="box p-3 is-flex is-align-items-center" style="width: 100%">
+        <div class="box p-3 is-flex is-align-items-center overflow-x-auto" style="width: 100%">
           <div class="field has-addons mb-0">
             <p class="control">
               <button
@@ -299,9 +299,9 @@
       </div>
     </div>
     <div class="columns">
-      <div class="column is-2">
+      <div class="column is-3-widescreen is-2-fullhd is-4">
         <div class="box px-2">
-          <aside class="menu" style="max-height: calc(100vh - 185px)">
+          <aside class="menu full-height overflow-y-auto">
             <FileTree
               on:select={(e) => selectFile(e.detail)}
               files={buildLedgerTree(_.values(filesMap))}
@@ -311,14 +311,14 @@
           </aside>
         </div>
       </div>
-      <div class="column is-6">
+      <div class="column is-6-widescreen is-6-fullhd is-8">
         <div class="box py-0">
           <div class="editor" bind:this={editorDom} />
         </div>
       </div>
-      <div class="column is-4">
+      <div class="column is-3-widescreen is-4-fullhd is-hidden-touch is-hidden-desktop-only">
         {#if !_.isEmpty($editorState.output)}
-          <pre style="max-height: calc(100vh - 185px)">{$editorState.output}</pre>
+          <pre class="box px-3 full-height">{$editorState.output}</pre>
         {/if}
       </div>
     </div>

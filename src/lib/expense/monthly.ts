@@ -1,6 +1,6 @@
 import * as d3 from "d3";
 import legend from "d3-svg-legend";
-import dayjs, { Dayjs } from "dayjs";
+import type { Dayjs } from "dayjs";
 import chroma from "chroma-js";
 import _ from "lodash";
 import {
@@ -12,9 +12,11 @@ import {
   skipTicks,
   tooltip,
   restName,
-  firstName
+  firstName,
+  monthDays,
+  rem
 } from "$lib/utils";
-import COLORS, { generateColorScheme } from "$lib/colors";
+import COLORS, { generateColorScheme, white } from "$lib/colors";
 import { get, type Readable, type Writable } from "svelte/store";
 import { iconify } from "$lib/icon";
 import { byExpenseGroup, expenseGroup, pieData } from "$lib/expense";
@@ -26,25 +28,16 @@ export function renderCalendar(
   groups: string[]
 ) {
   const id = "#d3-current-month-expense-calendar";
-  const monthStart = dayjs(month, "YYYY-MM");
-  const monthEnd = monthStart.endOf("month");
-  const weekStart = monthStart.startOf("week");
-  const weekEnd = monthEnd.endOf("week");
 
   const alpha = d3.scaleLinear().range([0.3, 1]);
-
   const expensesByDay: Record<string, Posting[]> = {};
-  const days: Dayjs[] = [];
-  let d = weekStart;
-  while (d.isSameOrBefore(weekEnd)) {
-    days.push(d);
+  const { days, monthStart, monthEnd } = monthDays(month);
+  _.each(days, (d) => {
     expensesByDay[d.format("YYYY-MM-DD")] = _.filter(
       expenses,
       (e) => e.date.isSame(d, "day") && _.includes(groups, expenseGroup(e))
     );
-
-    d = d.add(1, "day");
-  }
+  });
 
   const expensesByDayTotal = _.mapValues(expensesByDay, (ps) => _.sumBy(ps, (p) => p.amount));
 
@@ -139,13 +132,13 @@ export function renderMonthlyExpensesTimeline(
   postings: Posting[],
   groupsStore: Writable<string[]>,
   monthStore: Writable<string>,
-  dateRangeStore: Readable<{ from: dayjs.Dayjs; to: dayjs.Dayjs }>
+  dateRangeStore: Readable<{ from: Dayjs; to: Dayjs }>
 ) {
   const id = "#d3-monthly-expense-timeline";
   const timeFormat = "MMM-YYYY";
-  const MAX_BAR_WIDTH = 40;
+  const MAX_BAR_WIDTH = rem(40);
   const svg = d3.select(id),
-    margin = { top: 40, right: 30, bottom: 60, left: 40 },
+    margin = { top: rem(60), right: rem(30), bottom: rem(60), left: rem(40) },
     width =
       document.getElementById(id.substring(1)).parentElement.clientWidth -
       margin.left -
@@ -253,16 +246,24 @@ export function renderMonthlyExpensesTimeline(
   const yAxis = g.append("g").attr("class", "axis y");
 
   const bars = g.append("g");
-  const line = g
+  const line1 = g
     .append("path")
-    .attr("stroke", COLORS.primary)
+    .attr("fill", "none")
+    .attr("stroke", white())
+    .attr("stroke-width", "2px")
+    .attr("stroke-linecap", "round");
+
+  const line2 = g
+    .append("path")
+    .attr("fill", "none")
+    .attr("stroke", COLORS.expenses)
     .attr("stroke-width", "2px")
     .attr("stroke-linecap", "round")
-    .attr("stroke-dasharray", "5,5");
+    .attr("stroke-dasharray", "4 6");
 
   let firstRender = true;
 
-  const render = (allowedGroups: string[], dateRange: { from: dayjs.Dayjs; to: dayjs.Dayjs }) => {
+  const render = (allowedGroups: string[], dateRange: { from: Dayjs; to: Dayjs }) => {
     groupsStore.set(allowedGroups);
     const allowedPoints = _.filter(
       points,
@@ -292,22 +293,22 @@ export function renderMonthlyExpensesTimeline(
 
     yAxis.transition(t).call(d3.axisLeft(y).tickSize(-width).tickFormat(formatCurrencyCrude));
 
-    line.attr("fill", "none").attr(
-      "d",
-      d3
-        .line<Point>()
-        .curve(d3.curveStepAfter)
-        .x((p) => x(p.month))
-        .y((p) => {
-          const total = _.chain(ys[p.timestamp.format("YYYY")])
-            .pick(allowedGroups)
-            .values()
-            .sum()
-            .value();
+    const path = d3
+      .line<Point>()
+      .curve(d3.curveStepAfter)
+      .x((p) => x(p.month))
+      .y((p) => {
+        const total = _.chain(ys[p.timestamp.format("YYYY")])
+          .pick(allowedGroups)
+          .values()
+          .sum()
+          .value();
 
-          return y(total);
-        })(allowedPoints)
-    );
+        return y(total);
+      })(allowedPoints);
+
+    line1.attr("d", path);
+    line2.attr("d", path);
 
     bars
       .selectAll("g")
@@ -380,9 +381,9 @@ export function renderMonthlyExpensesTimeline(
   let selectedGroups = groups;
   render(selectedGroups, get(dateRangeStore));
 
-  dateRangeStore.subscribe((dateRange) => render(get(groupsStore), dateRange));
+  const destroy = dateRangeStore.subscribe((dateRange) => render(get(groupsStore), dateRange));
 
-  svg.append("g").attr("class", "legendOrdinal").attr("transform", "translate(40,0)");
+  svg.append("g").attr("class", "legendOrdinal").attr("transform", `translate(${margin.top},0)`);
 
   const legendOrdinal = legend
     .legendColor()
@@ -408,14 +409,15 @@ export function renderMonthlyExpensesTimeline(
     .scale(z);
 
   svg.select(".legendOrdinal").call(legendOrdinal as any);
-  return { z: z };
+  return { z: z, destroy: destroy };
 }
 
 export function renderCurrentExpensesBreakdown(z: d3.ScaleOrdinal<string, string, never>) {
   const id = "#d3-current-month-breakdown";
-  const BAR_HEIGHT = 20;
+  const BAR_HEIGHT = rem(20);
+  const TEXT_WIDTH = rem(135);
   const svg = d3.select(id),
-    margin = { top: 0, right: 160, bottom: 20, left: 100 },
+    margin = { top: 0, right: rem(160), bottom: rem(20), left: rem(100) },
     width =
       document.getElementById(id.substring(1)).parentElement.clientWidth -
       margin.left -
@@ -540,9 +542,9 @@ export function renderCurrentExpensesBreakdown(z: d3.ScaleOrdinal<string, string
             .attr("y", function (d) {
               return y(d.category) + y.bandwidth() / 2;
             })
-            .attr("x", width + 135)
+            .attr("x", width + TEXT_WIDTH)
             .style("white-space", "pre")
-            .style("font-size", "13px")
+            .style("font-size", "0.928rem")
             .style("font-weight", "bold")
             .style("fill", function (d) {
               return chroma(z(d.category)).darken(0.8).hex();

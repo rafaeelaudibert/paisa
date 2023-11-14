@@ -43,17 +43,23 @@ hide:
 === ":fontawesome-solid-euro-sign: EURO"
 
     ```ledger
+    commodity €
+        format €1.000,00
+
+    commodity AAPL
+        format 1.000,00 AAPL
+
     2022/01/01 Salary
-        Income:Salary:Acme      -5,000€
-        Assets:Checking          5,000€
+        Income:Salary:Acme      €-5.000
+        Assets:Checking          €5.000
 
     2022/01/03 Rent
-        Assets:Checking         -2,000€
+        Assets:Checking         €-2.000
         Expenses:Rent
 
     2022/01/07 Investment
-        Assets:Checking         -1,000€
-        Assets:Equity:AAPL   6.452 AAPL @ 154.97€
+        Assets:Checking      €-1.000,02
+        Assets:Equity:AAPL   6,453 AAPL @ €154,97
     ```
 
 
@@ -70,13 +76,13 @@ hide:
 - :simple-git: The journal and configuration information are stored in **plain text** files
   that can be easily version controlled. You can collaborate with
   others by giving access to the files.
-- :octicons-graph-24: Can track the latest market **price** of your Mutual Fund, NPS Fund
+- :octicons-graph-24: Track the latest market **price** of your Mutual Fund, NPS Fund
   and Stock holdings.
-- :fontawesome-regular-credit-card: Can help with **expense** tracking and **budgeting**.
-- :material-microsoft-excel: Can **convert** CSV or Excel sheets to Ledger journal.
-- :material-beach: Can help with **retirement** planning.
-- :fontawesome-solid-building-columns: Can show the Mutual Fund and Stock holdings eligible for LTCG and
-  help you plan Tax Harvesting.
+- :fontawesome-regular-credit-card: Track and **budget** your **Expenses**.
+- :material-microsoft-excel: **Convert** CSV, Excel and PDF files to Ledger journal.
+- :octicons-goal-16: Track your **goals**.
+- :material-timer-sync: View your **recurring** transactions.
+- :material-beach: Plan your **retirement**.
 - :material-chart-bar: And many more **visualizations** to help you make any financial
   decisions.
 </div>

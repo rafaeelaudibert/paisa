@@ -9,7 +9,9 @@ import {
   skipTicks,
   type PortfolioAggregate,
   type CommodityBreakdown,
-  getColorPreference
+  getColorPreference,
+  rem,
+  svgTruncate
 } from "./utils";
 
 export function filterCommodityBreakdowns(
@@ -49,19 +51,25 @@ export function renderPortfolioBreakdown(
   }
 ) {
   const { showLegend, small } = options;
-  const BAR_HEIGHT = 25;
+  const BAR_HEIGHT = rem(25);
   const svg = d3.select(id),
-    margin = { top: showLegend ? 60 : 20, right: 0, bottom: 10, left: 20 },
-    fullWidth = document.getElementById(id.substring(1)).parentElement.clientWidth,
+    margin = { top: showLegend ? rem(60) : rem(20), right: 0, bottom: rem(10), left: rem(20) },
+    fullWidth =
+      Math.max(
+        document.getElementById(id.substring(1)).parentElement.clientWidth,
+        small ? 320 : 800
+      ) - 2,
     width = fullWidth - margin.left - margin.right,
     g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
+  svg.attr("width", fullWidth);
+
   const y = d3.scaleBand().paddingInner(0.1).paddingOuter(0);
 
-  const targetWidth = small ? width - 190 : 500;
-  const targetMargin = 20;
-  const textGroupWidth = 150;
-  const textGroupMargin = 20;
+  const targetWidth = small ? width - rem(190) : rem(500);
+  const targetMargin = rem(20);
+  const textGroupWidth = rem(150);
+  const textGroupMargin = rem(20);
   const textGroupZero = targetWidth + targetMargin;
 
   const x = d3.scaleLinear().range([textGroupZero + textGroupWidth + textGroupMargin, width]);
@@ -139,7 +147,7 @@ export function renderPortfolioBreakdown(
     const paddingTop = (BAR_HEIGHT - y.bandwidth()) / 2;
 
     if (showLegend) {
-      legendg.attr("class", "legendOrdinal").attr("transform", "translate(280,3)");
+      legendg.attr("class", "legendOrdinal").attr("transform", `translate(${margin.left},3)`);
 
       const legendOrdinal = legend
         .legendColor()
@@ -212,7 +220,8 @@ export function renderPortfolioBreakdown(
       .attr("dominant-baseline", "middle")
       .classed("svg-text-black svg-text-shadow", true)
       .attr("x", 5)
-      .attr("y", (t) => y(t.id) + BAR_HEIGHT / 2);
+      .attr("y", (t) => y(t.id) + BAR_HEIGHT / 2)
+      .each(svgTruncate(targetWidth));
 
     labelGroup.exit().remove();
 

@@ -4,35 +4,58 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
+	"github.com/ananthakumaran/paisa/internal/accounting"
 	"github.com/ananthakumaran/paisa/internal/config"
 	"github.com/ananthakumaran/paisa/internal/generator"
+	"github.com/ananthakumaran/paisa/internal/ledger"
 	"github.com/ananthakumaran/paisa/internal/model/template"
 	"github.com/ananthakumaran/paisa/internal/prediction"
 	"github.com/ananthakumaran/paisa/internal/server/assets"
+	"github.com/ananthakumaran/paisa/internal/server/goal"
 	"github.com/ananthakumaran/paisa/internal/server/liabilities"
-	"github.com/ananthakumaran/paisa/internal/server/retirement"
+	"github.com/ananthakumaran/paisa/internal/utils"
 	"github.com/ananthakumaran/paisa/web"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
-func Build(db *gorm.DB) *gin.Engine {
+func Build(db *gorm.DB, enableCompression bool) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
+	if enableCompression {
+		router.Use(gzip.Gzip(gzip.DefaultCompression))
+	}
+
 	router.Use(Logger(log.StandardLogger()), gin.Recovery())
+
+	router.GET("/robots.txt", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte("User-agent: *\nDisallow: /"))
+	})
 
 	router.GET("/_app/*filepath", func(c *gin.Context) {
 		c.FileFromFS("/static"+c.Request.URL.Path, http.FS(web.Static))
 	})
 
 	router.GET("/api/config", func(c *gin.Context) {
-		c.JSON(200, gin.H{"config": config.GetConfig(), "schema": config.GetSchema()})
+		var now *time.Time
+		if utils.IsNowDefined() {
+			n := utils.Now()
+			now = &n
+		}
+		c.JSON(200, gin.H{"config": config.GetConfig(), "accounts": accounting.AllAccounts(db), "now": now, "schema": config.GetSchema()})
 	})
 
 	router.POST("/api/config", func(c *gin.Context) {
+		if config.GetConfig().Readonly {
+			c.JSON(200, gin.H{"success": true})
+			return
+		}
+
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
@@ -49,6 +72,11 @@ func Build(db *gorm.DB) *gin.Engine {
 	})
 
 	router.POST("/api/init", func(c *gin.Context) {
+		if config.GetConfig().Readonly {
+			c.JSON(200, gin.H{"success": true})
+			return
+		}
+
 		generator.Demo(config.GetConfigDir())
 		config.LoadConfigFile(config.GetConfigPath())
 		Sync(db, SyncRequest{Journal: true, Prices: true, Portfolios: true})
@@ -56,6 +84,11 @@ func Build(db *gorm.DB) *gin.Engine {
 	})
 
 	router.POST("/api/sync", func(c *gin.Context) {
+		if config.GetConfig().Readonly {
+			c.JSON(200, gin.H{"success": true})
+			return
+		}
+
 		var syncRequest SyncRequest
 		if err := c.ShouldBindJSON(&syncRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -121,6 +154,11 @@ func Build(db *gorm.DB) *gin.Engine {
 	})
 
 	router.POST("/api/price/providers/delete/:provider", func(c *gin.Context) {
+		if config.GetConfig().Readonly {
+			c.JSON(200, gin.H{"success": true})
+			return
+		}
+
 		provider := c.Param("provider")
 		c.JSON(200, ClearPriceProviderCache(db, provider))
 	})
@@ -150,10 +188,6 @@ func Build(db *gorm.DB) *gin.Engine {
 	})
 	router.GET("/api/diagnosis", func(c *gin.Context) {
 		c.JSON(200, GetDiagnosis(db))
-	})
-
-	router.GET("/api/retirement/progress", func(c *gin.Context) {
-		c.JSON(200, retirement.GetRetirementProgress(db))
 	})
 
 	router.GET("/api/liabilities/interest", func(c *gin.Context) {
@@ -207,6 +241,11 @@ func Build(db *gorm.DB) *gin.Engine {
 	})
 
 	router.POST("/api/editor/save", func(c *gin.Context) {
+		if config.GetConfig().Readonly {
+			c.JSON(200, gin.H{"errors": []ledger.LedgerFileError{}, "saved": false, "message": "Readonly mode"})
+			return
+		}
+
 		var ledgerFile LedgerFile
 		if err := c.ShouldBindJSON(&ledgerFile); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -221,7 +260,7 @@ func Build(db *gorm.DB) *gin.Engine {
 	})
 
 	router.GET("/api/templates", func(c *gin.Context) {
-		c.JSON(200, gin.H{"templates": template.All(db)})
+		c.JSON(200, gin.H{"templates": template.All()})
 	})
 
 	router.POST("/api/templates/upsert", func(c *gin.Context) {
@@ -231,18 +270,31 @@ func Build(db *gorm.DB) *gin.Engine {
 			return
 		}
 
-		c.JSON(200, template.Upsert(db, t.Name, t.Content))
+		c.JSON(200, template.Upsert(t.Name, t.Content))
 	})
 
 	router.POST("/api/templates/delete", func(c *gin.Context) {
+		if config.GetConfig().Readonly {
+			c.JSON(200, gin.H{})
+			return
+		}
+
 		var t template.Template
 		if err := c.ShouldBindJSON(&t); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		template.Delete(db, t.ID)
+		template.Delete(t.Name)
 		c.JSON(200, gin.H{})
+	})
+
+	router.GET("/api/goals", func(c *gin.Context) {
+		c.JSON(200, gin.H{"goals": goal.GetGoalSummaries(db)})
+	})
+
+	router.GET("/api/goals/:type/:name", func(c *gin.Context) {
+		c.JSON(200, goal.GetGoalDetails(db, c.Param("type"), c.Param("name")))
 	})
 
 	router.NoRoute(func(c *gin.Context) {
@@ -253,7 +305,7 @@ func Build(db *gorm.DB) *gin.Engine {
 }
 
 func Listen(db *gorm.DB, port int) {
-	router := Build(db)
+	router := Build(db, true)
 
 	log.Infof("Listening on http://localhost:%d", port)
 	err := router.Run(fmt.Sprintf(":%d", port))

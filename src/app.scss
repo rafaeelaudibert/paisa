@@ -1,6 +1,10 @@
-$family-sans-serif: "Roboto Flex Variable", sans-serif, "Font Awesome 6 Free Solid",
-  "Font Awesome 6 Free Brands";
+@import "./colors";
 
+$body-size: 14px;
+
+$family-sans-serif: "Roboto Flex Variable", sans-serif;
+$family-sans-serif-icon: "Roboto Flex Variable", sans-serif, "arcticons", "fa6-brands",
+  "fa6-regular", "fa6-solid", "fluent-emoji-high-contrast", "mdi";
 $family-monospace: "Roboto Mono Variable", monospace;
 
 $box-radius: 4px;
@@ -13,15 +17,61 @@ $danger-light: hsl(347, 90%, 96%);
 
 $switch-focus: none;
 
+$yellow: $amber-500;
+
 @import "bulma/sass/utilities/_all.sass";
+@import "@fortawesome/fontawesome-free/scss/fontawesome.scss";
 
 $menu-item-hover-background-color: $link-light;
 $menu-item-active-color: $link-dark;
 $menu-item-active-background-color: $link-light;
 
+$editor-full-height: calc(100vh - 21px - 57.75px - 10.5px);
+
 @import "bulma/bulma.sass";
 @import "bulma-switch/src/sass/index.sass";
 @import "@cityssm/bulma-sticky-table/sticky-table";
+
+// override message style
+
+.message {
+  @each $name, $components in $message-colors {
+    $color: nth($components, 1);
+    $color-invert: nth($components, 2);
+    $color-light: null;
+    $color-dark: null;
+
+    @if length($components) >= 3 {
+      $color-light: nth($components, 3);
+      @if length($components) >= 4 {
+        $color-dark: nth($components, 4);
+      } @else {
+        $color-luminance: colorLuminance($color);
+        $darken-percentage: $color-luminance * 70%;
+        $desaturate-percentage: $color-luminance * 30%;
+        $color-dark: desaturate(darken($color, $darken-percentage), $desaturate-percentage);
+      }
+    } @else {
+      $color-lightning: max((100% - lightness($color)) - 2%, 0%);
+      $color-light: lighten($color, $color-lightning);
+    }
+
+    &.invertable.is-#{$name} {
+      background-color: transparent;
+      border: 1px solid rgba($color, 0.6);
+
+      .message-header {
+        background-color: rgba($color, 0.15);
+        color: $black-ter;
+      }
+      .message-body {
+        color: $text;
+        background: $white-bis;
+        border: none;
+      }
+    }
+  }
+}
 
 // daisy UI color override
 .du-tabs {
@@ -56,7 +106,7 @@ $menu-item-active-background-color: $link-light;
 
   a.du-active {
     color: $link !important;
-    background-color: $white-ter !important;
+    background-color: $white !important;
     font-weight: bold;
   }
 }
@@ -75,7 +125,6 @@ $menu-item-active-background-color: $link-light;
 
 html,
 body {
-  font-size: 14px;
   background: $white-bis;
 }
 
@@ -87,12 +136,20 @@ body {
   }
 }
 
+.tab-journal .table td {
+  border: 1px solid rgba($grey-lightest, 0.5);
+}
+
 code {
   color: $grey-darker;
 }
 
+.progress.is-extra-small {
+  height: 0.3rem;
+}
+
 .inline-text text {
-  font-size: 12px;
+  font-size: 0.857rem;
   font-weight: bold;
 }
 
@@ -116,8 +173,12 @@ code {
   border-left: 1px solid $grey-lighter;
 }
 
+.is-bordered.is-link {
+  border: 2px solid $link;
+}
+
 svg text {
-  font-family: $family-sans-serif;
+  font-family: $family-sans-serif-icon;
 }
 
 .svg-text-grey-lighter {
@@ -152,6 +213,18 @@ svg text {
   fill: $grey-dark;
 }
 
+.svg-text-success {
+  fill: $success;
+}
+
+.svg-text-danger {
+  fill: $danger;
+}
+
+.svg-text-warning-dark {
+  fill: $warning-dark;
+}
+
 .svg-grey-light {
   stroke: $grey-light;
 }
@@ -177,21 +250,21 @@ svg text {
 }
 
 .axis {
-  font-family: $family-sans-serif;
+  font-family: $family-sans-serif-icon;
 
   &.dark text {
     fill: $grey;
-    font-size: 12px;
+    font-size: 0.857rem;
   }
 
   &.link text {
     fill: $link;
-    font-size: 12px;
+    font-size: 0.857rem;
     cursor: pointer;
   }
 
   text {
-    font-size: 10px;
+    font-size: 0.714rem;
     fill: $grey-light;
   }
 
@@ -200,6 +273,12 @@ svg text {
     fill: none;
     stroke: $grey-lighter;
     shape-rendering: crispEdges;
+  }
+
+  &.light-domain {
+    path.domain {
+      stroke: $grey-lightest;
+    }
   }
 
   .tick line {
@@ -235,7 +314,7 @@ svg text {
 .legendLine {
   .label {
     display: block;
-    font-size: 11px;
+    font-size: 0.785rem;
     text-transform: capitalize;
     font-weight: normal;
     color: $grey;
@@ -253,7 +332,7 @@ svg text {
 #d3-income-timeline .legendOrdinal .label,
 #d3-repayment-timeline .legendOrdinal .label,
 #d3-breakdown .legendOrdinal .label {
-  font-size: 10px;
+  font-size: 0.857rem;
 }
 
 #d3-salary-timeline .x.axis > g.tick {
@@ -295,7 +374,7 @@ svg text {
   border-bottom: 1px solid $grey-light;
   box-shadow: none;
   width: 80px;
-  font-size: 1em !important;
+  font-size: 1rem !important;
   margin-left: 5px;
   padding-top: 0;
   padding-bottom: 0;
@@ -311,6 +390,16 @@ svg text {
 
 .zoomable {
   cursor: zoom-in;
+}
+
+.weekdays-grid {
+  border-radius: $radius-small;
+
+  div {
+    padding: 2px 0;
+    color: $grey-dark;
+    background: $white-ter;
+  }
 }
 
 .d3-calendar .days,
@@ -360,8 +449,8 @@ svg text {
 }
 
 .container.is-fluid {
-  padding-left: 24px;
-  padding-right: 24px;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
 }
 
 .level-item p.title {
@@ -374,6 +463,10 @@ nav.level.grid-2 {
   grid-template-columns: [first] 50% [line2] 50%;
   justify-items: start;
   justify-content: unset !important;
+
+  .level-item {
+    margin-bottom: 0.75rem;
+  }
 }
 
 .navbar-item,
@@ -393,6 +486,8 @@ nav.level.grid-2 {
     background-color: $white-ter;
     color: $grey-light;
     border: none;
+    border-top-left-radius: $radius-small;
+    border-bottom-left-radius: $radius-small;
   }
 
   .cm-activeLineGutter {
@@ -416,6 +511,10 @@ nav.level.grid-2 {
 
   .cm-line .ͼg {
     color: $link;
+  }
+
+  .cm-line .ͼm {
+    color: $grey;
   }
 
   .cm-line .ͼ9 {
@@ -458,7 +557,7 @@ nav.level.grid-2 {
   .cm-diagnostic {
     background: $white !important;
     color: $black-ter;
-    font-size: 14px;
+    font-size: 1rem;
     box-shadow: $shadow;
   }
 
@@ -471,7 +570,7 @@ nav.level.grid-2 {
       @include control;
       background: $white;
       border: 1px solid $grey-lighter;
-      font-size: 12px;
+      font-size: 0.875rem;
     }
 
     .cm-textfield {
@@ -493,7 +592,7 @@ nav.level.grid-2 {
     }
 
     [name="close"] {
-      font-size: 14px;
+      font-size: 1rem;
       color: $black;
     }
   }
@@ -554,16 +653,24 @@ nav.level.grid-2 {
   border-radius: $radius;
   background: $white;
   padding: 2px 5px;
-  width: 800px;
+  width: calc(100vw - 20px);
+  @include desktop {
+    width: 800px;
+  }
+}
+
+.full-height {
+  max-height: $editor-full-height;
 }
 
 .editor .cm-editor {
-  max-height: calc(100vh - 185px);
+  max-height: $editor-full-height;
 }
+
 .cm-scroller {
   overflow: auto;
   font-family: $family-monospace !important;
-  font-size: 13px;
+  font-size: 0.928rem;
 }
 
 .cm-focused {
@@ -574,13 +681,18 @@ nav.level.grid-2 {
   font-family: $family-monospace;
 }
 
+.cm-tag {
+  height: 1.5em !important;
+}
+
 .svelte-select {
   --chevron-color: hsl(229deg, 53%, 53%);
-  --font-size: 14px;
+  --font-size: 1rem;
   --background: #{$white};
   --list-background: #{$white};
   --item-hover-bg: #{$white-bis};
   --item-hover-color: #{$black-bis};
+  --item-color: #{$text};
   --item-is-active-bg: #{$white-ter};
   --item-is-active-color: #{$black-ter};
   --border: 1px solid #{$grey-lighter};
@@ -589,6 +701,10 @@ nav.level.grid-2 {
   --list-shadow: #{$shadow};
   --height: 35px;
   --max-height: 35px;
+  --multi-item-bg: #{$white-ter};
+  --multi-item-outline: none;
+  --multi-item-padding: 0 0.714em;
+  --multi-item-clear-icon-color: #{$grey};
 
   .item.active span.name {
     font-weight: bold;
@@ -602,8 +718,12 @@ nav.level.grid-2 {
   }
 }
 
+.svelte-select.is-expandable {
+  --max-height: 200px;
+}
+
 .sc-carousel-dots__dot-container {
-  margin-top: 10px;
+  margin-top: 0.714em;
 }
 
 .sc-carousel-button.sc-carousel-dot__dot {
@@ -632,7 +752,7 @@ nav.level.grid-2 {
 }
 
 .custom-arrow {
-  width: 25px;
+  width: 1.5rem;
   position: absolute;
   top: 0;
   bottom: 0;
@@ -643,21 +763,24 @@ nav.level.grid-2 {
   justify-content: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  background-color: $white-bis;
+  background-color: $white-ter;
+  opacity: 0.5;
 
   &:hover {
-    background-color: $white-ter;
+    opacity: 1;
   }
 }
 
 nav.breadcrumb a.is-inactive {
-  color: $grey-darker;
+  color: $grey;
   cursor: default;
   pointer-events: none;
 }
 
 .breadcrumb.has-chevron-separator li + li::before {
-  content: "";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  content: unquote('"#{ $fa-var-chevron-right }"');
   color: $link;
 }
 
@@ -694,13 +817,13 @@ span.progress-percent.less-than-10 {
 
   svg {
     path {
-      fill: $link;
+      fill: $black;
     }
   }
 }
 
 .transaction.bordered {
-  border-bottom: 1px solid $grey-lighter;
+  border-bottom: 1px solid rgba($grey-lightest, 0.5);
   padding-bottom: 1px;
 }
 
@@ -815,7 +938,8 @@ span.progress-percent.less-than-10 {
   color: $success;
 }
 
-input:invalid {
+input:invalid,
+textarea:invalid {
   border-color: $danger;
 }
 
@@ -843,4 +967,9 @@ input:invalid {
         0 0 0 1px rgba(10, 10, 10, 0.1);
     }
   }
+}
+
+.custom-icon,
+[data-tippy-root] {
+  font-family: $family-sans-serif-icon;
 }

@@ -17,14 +17,10 @@ func GetRecurringTransactions(db *gorm.DB) gin.H {
 }
 
 type TransactionSequence struct {
-	Transactions             []transaction.Transaction `json:"transactions"`
-	Key                      TransactionSequenceKey    `json:"key"`
-	Interval                 int                       `json:"interval"`
-	DaysSinceLastTransaction int                       `json:"days_since_last_transaction"`
-}
-
-type TransactionSequenceKey struct {
-	TagRecurring string `json:"tagRecurring"`
+	Transactions []transaction.Transaction `json:"transactions"`
+	Key          string                    `json:"key"`
+	Period       string                    `json:"period"`
+	Interval     int                       `json:"interval"`
 }
 
 func ComputeRecurringTransactions(postings []posting.Posting) []TransactionSequence {
@@ -38,23 +34,26 @@ func ComputeRecurringTransactions(postings []posting.Posting) []TransactionSeque
 	transactions = lo.Filter(transactions, func(t transaction.Transaction, _ int) bool {
 		return t.TagRecurring != ""
 	})
-	transactionsGrouped := lo.GroupBy(transactions, func(t transaction.Transaction) TransactionSequenceKey {
-		return TransactionSequenceKey{TagRecurring: t.TagRecurring}
+	transactionsGrouped := lo.GroupBy(transactions, func(t transaction.Transaction) string {
+		return t.TagRecurring
 	})
 
-	transaction_sequences := lo.MapToSlice(transactionsGrouped, func(key TransactionSequenceKey, ts []transaction.Transaction) TransactionSequence {
+	transaction_sequences := lo.MapToSlice(transactionsGrouped, func(key string, ts []transaction.Transaction) TransactionSequence {
 		sort.SliceStable(ts, func(i, j int) bool {
 			return ts[i].Date.After(ts[j].Date)
 		})
 
 		interval := 0
-		daysSinceLastTransaction := 0
-		if len(ts) > 1 {
-			interval = int(ts[0].Date.Sub(ts[1].Date).Hours() / 24)
-			daysSinceLastTransaction = int(now.Sub(ts[0].Date).Hours() / 24)
+		var period string
+		if ts[0].TagPeriod != "" {
+			period = ts[0].TagPeriod
 		}
 
-		return TransactionSequence{Transactions: ts, Key: key, Interval: interval, DaysSinceLastTransaction: daysSinceLastTransaction}
+		if len(ts) > 1 {
+			interval = int(ts[0].Date.Sub(ts[1].Date).Hours() / 24)
+		}
+
+		return TransactionSequence{Transactions: ts, Key: key, Interval: interval, Period: period}
 	})
 
 	sort.SliceStable(transaction_sequences, func(i, j int) bool {

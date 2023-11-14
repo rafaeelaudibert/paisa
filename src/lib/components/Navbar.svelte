@@ -10,10 +10,9 @@
     cashflowIncomeDepthAllowed
   } from "../../persisted_store";
   import _ from "lodash";
-  import { financialYear, forEachFinancialYear, helpUrl } from "$lib/utils";
+  import { financialYear, forEachFinancialYear, helpUrl, now } from "$lib/utils";
   import { onMount } from "svelte";
   import { get } from "svelte/store";
-  import dayjs from "dayjs";
   import DateRange from "./DateRange.svelte";
   import ThemeSwitcher from "./ThemeSwitcher.svelte";
   import BoxedTabs from "./BoxedTabs.svelte";
@@ -21,12 +20,20 @@
   import Logo from "./Logo.svelte";
   import InputRange from "./InputRange.svelte";
   export let isBurger: boolean = null;
+  const readonly = USER_CONFIG.readonly;
 
   onMount(async () => {
     if (get(year) == "") {
-      year.set(financialYear(dayjs()));
+      year.set(financialYear(now()));
     }
   });
+
+  const RecurringIcons = [
+    { icon: "fa-circle-check", color: "success", label: "Cleared" },
+    { icon: "fa-circle-check", color: "warning-dark", label: "Cleared late" },
+    { icon: "fa-exclamation-triangle", color: "danger", label: "Past due" },
+    { icon: "fa-circle-check", color: "grey", label: "Upcoming" }
+  ];
 
   interface Link {
     label: string;
@@ -39,6 +46,7 @@
     cashflowTypePicker?: boolean;
     financialYearPicker?: boolean;
     maxDepthSelector?: boolean;
+    recurringIcons?: boolean;
     children?: Link[];
   }
   const links: Link[] = [
@@ -55,7 +63,13 @@
           financialYearPicker: true,
           maxDepthSelector: true
         },
-        { label: "Recurring", href: "/recurring", help: "recurring" }
+        {
+          label: "Recurring",
+          href: "/recurring",
+          help: "recurring",
+          monthPicker: true,
+          recurringIcons: true
+        }
       ]
     },
     {
@@ -105,7 +119,7 @@
       href: "/more",
       children: [
         { label: "Configuration", href: "/config", tag: "alpha" },
-        { label: "Retirement", href: "/retirement/progress", help: "retirement" },
+        { label: "Goals", href: "/goals", help: "goals" },
         { label: "Doctor", href: "/doctor" },
         { label: "Logs", href: "/logs" }
       ]
@@ -131,6 +145,9 @@
   if (USER_CONFIG.default_currency == "INR") {
     _.last(links).children.push(tax);
   }
+
+  const about = { label: "About", href: "/about" };
+  _.last(links).children.push(about);
 
   let selectedLink: Link = null;
   let selectedSubLink: Link = null;
@@ -166,7 +183,7 @@
   }
 </script>
 
-<nav class="navbar px-3 is-transparent" aria-label="main navigation">
+<nav class="navbar px-2 is-transparent" aria-label="main navigation">
   <div class="navbar-brand">
     <a
       href="/"
@@ -246,9 +263,18 @@
         {/if}
       {/each}
     </div>
-    <div class="navbar-end">
+    <div class="navbar-end" style="margin-right: 0.3em">
       <div class="navbar-item">
         <div class="field is-grouped">
+          {#if readonly}
+            <p class="control">
+              <span
+                class="mt-1 tag is-rounded is-danger is-light invertable"
+                data-tippy-content="<p>Paisa is in readonly mode</p>">readonly</span
+              >
+            </p>
+          {/if}
+
           <p class="control">
             <ThemeSwitcher />
           </p>
@@ -264,7 +290,7 @@
 <div class="mt-2 px-3 is-flex is-justify-content-space-between">
   {#if selectedLink}
     <nav
-      style="margin-left: 12px;"
+      style="margin-left: 0.73rem;"
       class="breadcrumb has-chevron-separator mb-0 is-small"
       aria-label="breadcrumbs"
     >
@@ -321,6 +347,19 @@
   {/if}
 
   <div class="mr-3 is-flex" style="gap: 12px">
+    {#if selectedSubLink?.recurringIcons}
+      <div class="flex gap-5 items-center has-text-grey">
+        {#each RecurringIcons as icon}
+          <div data-tippy-content="<p>{icon.label}</p>">
+            <span class="icon is-small has-text-{icon.color}">
+              <i class={"fas " + icon.icon} />
+            </span>
+            <span class="is-hidden-mobile">{icon.label}</span>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
     {#if selectedSubLink?.cashflowTypePicker}
       <BoxedTabs
         options={[
@@ -340,7 +379,7 @@
             </span>
           </button>
         </div>
-        <div class="dropdown-menu" id="dropdown-menu4" role="menu">
+        <div class="dropdown-menu" role="menu">
           <div class="dropdown-content px-2 py-2">
             <InputRange
               label="Expenses"

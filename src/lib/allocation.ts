@@ -1,6 +1,6 @@
 import * as d3 from "d3";
 import legend from "d3-svg-legend";
-import dayjs from "dayjs";
+import type dayjs from "dayjs";
 import _ from "lodash";
 import {
   type Aggregate,
@@ -12,7 +12,9 @@ import {
   secondName,
   textColor,
   tooltip,
-  skipTicks
+  skipTicks,
+  rem,
+  now
 } from "./utils";
 import COLORS, { generateColorScheme } from "./colors";
 import chroma from "chroma-js";
@@ -27,14 +29,16 @@ export function renderAllocationTarget(
     return;
   }
   allocationTargets = _.sortBy(allocationTargets, (t) => t.name);
-  const BAR_HEIGHT = 25;
+  const BAR_HEIGHT = rem(25);
   const svg = d3.select(id),
-    margin = { top: 20, right: 20, bottom: 10, left: 150 },
-    fullWidth = document.getElementById(id.substring(1)).parentElement.clientWidth,
+    margin = { top: rem(20), right: rem(20), bottom: rem(10), left: rem(150) },
+    fullWidth = Math.max(document.getElementById(id.substring(1)).parentElement.clientWidth, 1000),
     width = fullWidth - margin.left - margin.right,
     height = allocationTargets.length * BAR_HEIGHT * 2,
     g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
   svg.attr("height", height + margin.top + margin.bottom);
+
+  svg.attr("width", fullWidth);
 
   const keys = ["target", "current"];
   const colorKeys = ["target", "current", "diff"];
@@ -61,10 +65,10 @@ export function renderAllocationTarget(
     .flatMap((t) => [t.current, t.target])
     .max()
     .value();
-  const targetWidth = 400;
-  const targetMargin = 20;
-  const textGroupWidth = 150;
-  const textGroupMargin = 20;
+  const targetWidth = rem(400);
+  const targetMargin = rem(20);
+  const textGroupWidth = rem(150);
+  const textGroupMargin = rem(20);
   const textGroupZero = targetWidth + targetMargin;
 
   const x = d3.scaleLinear().range([textGroupZero + textGroupWidth + textGroupMargin, width]);
@@ -327,7 +331,7 @@ export function renderAllocationTimeline(aggregatesTimeline: { [key: string]: Ag
     _.map(assets, () => 0)
   );
   const start = timeline[0][0].timestamp,
-    end = dayjs();
+    end = now();
 
   interface Point {
     date: dayjs.Dayjs;

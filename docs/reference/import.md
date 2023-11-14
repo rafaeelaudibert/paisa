@@ -1,3 +1,7 @@
+---
+description: "How to import CSV, TXT, XLS, XLSX or PDF files into Paisa"
+---
+
 # Import
 
 Paisa provides ability to convert **CSV**, **TXT**, **XLS**, **XLSX**
@@ -49,7 +53,8 @@ helper functions to make it easier to write the template.
 
 Paisa ships with a few built-in templates. You can also create your
 own. To create a new template, edit the template and click on the
-`Save As` button.
+`Save As` button. User defined custom templates are stored in the
+configuration file.
 
 !!! tip
     The import system is designed to be extensible and might not be
@@ -192,19 +197,29 @@ Converts the given string to a valid amount. If the string is blank,
 the default value is used. Examples `(0.9534)` to `-0.9534`, `₹
 1,234.56` to `1234.56`
 
+#### `#!typescript round(str: string, {precision?: number}): number`
+
+Rounds the given value to the given precision. If precision is not
+set, defaults to `0`
 
 #### `#!typescript isDate(str: string, format: string): boolean`
 
 Checks if the given string is a valid date in the given format. Refer
 [Day.js](https://day.js.org/docs/en/parse/string-format#list-of-all-available-parsing-tokens) for the full list of supported formats.
 
-#### `#!typescript predictAccount(...corpus: string[], {prefix?: string}): string`
+#### `#!typescript predictAccount(...terms: string[], {prefix?: string}): string`
 
-corpus provided will be matched with the existing transaction
-description and amount.
+Helps with prediction of account name to be used in a
+transaction. Let's say you import your Credit Card bill, you would
+prefer the system to automatically assign the account name for
+you. `predictAccount` acts like a search engine. It will try to find a
+transaction that is similar to the current transaction. The search
+requires input (referred as terms) and it will match transactions with
+similar **description** and will pick the accounts from the top match.
 
-If `corpus` is not provided, the entire `ROW` will be used.  The
-`prefix` is optional and will be used to filter out matching
+If `terms` are not provided, the entire `ROW` will be used.
+
+The `prefix` is optional and will be used to filter out matching
 accounts. If no match is found, `Unknown` will be returned.
 
 ```handlebars
@@ -258,3 +273,13 @@ Extract part of a string. Let's say you have `Axis Long Term
   Equity Growth Direct Plan` and you want to extract `Axis Long Term
   Equity`, you can use `#!handlebars {{regexpMatch ROW.C "(.*) Growth Direct Plan" group=1}}` assuming the string is in the column
   `C`. `group` is optional and defaults to `0`.
+
+
+#### `#!typescript textRange(fromColumn: string, toColumn: string, {separator?: number}): string`
+
+Extracts text from the given range of columns. The `separator` is
+optional and defaults to `" "`.
+
+```handlebars
+{{textRange A C separator=" "}}
+```

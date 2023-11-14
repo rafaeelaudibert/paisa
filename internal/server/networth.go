@@ -18,20 +18,21 @@ type Networth struct {
 	WithdrawalAmount    decimal.Decimal `json:"withdrawalAmount"`
 	GainAmount          decimal.Decimal `json:"gainAmount"`
 	BalanceAmount       decimal.Decimal `json:"balanceAmount"`
+	BalanceUnits        decimal.Decimal `json:"balanceUnits"`
 	NetInvestmentAmount decimal.Decimal `json:"netInvestmentAmount"`
 }
 
 func GetNetworth(db *gorm.DB) gin.H {
-	postings := query.Init(db).Like("Assets:%", "Liabilities:%").UntilToday().All()
+	postings := query.Init(db).Like("Assets:%", "Income:CapitalGains:%", "Liabilities:%").UntilToday().All()
 
 	postings = service.PopulateMarketPrice(db, postings)
-	networthTimeline := computeNetworthTimeline(db, postings)
+	networthTimeline := computeNetworthTimeline(db, postings, false)
 	xirr := service.XIRR(db, postings)
 	return gin.H{"networthTimeline": networthTimeline, "xirr": xirr}
 }
 
 func GetCurrentNetworth(db *gorm.DB) gin.H {
-	postings := query.Init(db).Like("Assets:%", "Liabilities:%").UntilToday().All()
+	postings := query.Init(db).Like("Assets:%", "Income:CapitalGains:%", "Liabilities:%").UntilToday().All()
 	postings = service.PopulateMarketPrice(db, postings)
 	networth := computeNetworth(db, postings)
 	xirr := service.XIRR(db, postings)
@@ -54,9 +55,12 @@ func computeNetworth(db *gorm.DB, postings []posting.Posting) Networth {
 		isInterest := service.IsInterest(db, p)
 		isInterestRepayment := service.IsInterestRepayment(db, p)
 		isStockSplit := service.IsStockSplit(db, p)
+		isCapitalGains := service.IsCapitalGains(p)
 
 		if isInterest || isInterestRepayment {
 			balance = balance.Add(p.Amount)
+		} else if isCapitalGains {
+			withdrawal = withdrawal.Add(p.Amount.Neg())
 		} else {
 			if p.Amount.GreaterThan(decimal.Zero) && !isStockSplit {
 				investment = investment.Add(p.Amount)
@@ -84,7 +88,7 @@ func computeNetworth(db *gorm.DB, postings []posting.Posting) Networth {
 	return networth
 }
 
-func computeNetworthTimeline(db *gorm.DB, postings []posting.Posting) []Networth {
+func computeNetworthTimeline(db *gorm.DB, postings []posting.Posting, computeBalanceUnits bool) []Networth {
 	var networths []Networth
 
 	var p posting.Posting
@@ -109,6 +113,7 @@ func computeNetworthTimeline(db *gorm.DB, postings []posting.Posting) []Networth
 			rs := accumulator[p.Commodity]
 
 			isInterest := service.IsInterest(db, p)
+			isCapitalGains := service.IsCapitalGains(p)
 
 			if p.Amount.GreaterThan(decimal.Zero) && !isInterest {
 				rs.investment = rs.investment.Add(p.Amount)
@@ -118,8 +123,10 @@ func computeNetworthTimeline(db *gorm.DB, postings []posting.Posting) []Networth
 				rs.withdrawal = rs.withdrawal.Add(p.Amount.Neg())
 			}
 
-			rs.balance = rs.balance.Add(service.GetMarketPrice(db, p, start))
-			rs.balanceUnits = rs.balanceUnits.Add(p.Quantity)
+			if !isCapitalGains {
+				rs.balance = rs.balance.Add(service.GetMarketPrice(db, p, start))
+				rs.balanceUnits = rs.balanceUnits.Add(p.Quantity)
+			}
 
 			accumulator[p.Commodity] = rs
 
@@ -128,6 +135,7 @@ func computeNetworthTimeline(db *gorm.DB, postings []posting.Posting) []Networth
 		var investment decimal.Decimal = decimal.Zero
 		var withdrawal decimal.Decimal = decimal.Zero
 		var balance decimal.Decimal = decimal.Zero
+		var balanceUnits decimal.Decimal = decimal.Zero
 
 		for commodity, rs := range accumulator {
 			investment = investment.Add(rs.investment)
@@ -136,6 +144,9 @@ func computeNetworthTimeline(db *gorm.DB, postings []posting.Posting) []Networth
 			if utils.IsCurrency(commodity) {
 				balance = balance.Add(rs.balance)
 			} else {
+				if computeBalanceUnits {
+					balanceUnits = balanceUnits.Add(rs.balanceUnits)
+				}
 				price := service.GetUnitPrice(db, commodity, start)
 				if !price.Value.Equal(decimal.Zero) {
 					balance = balance.Add(rs.balanceUnits.Mul(price.Value))
@@ -154,6 +165,7 @@ func computeNetworthTimeline(db *gorm.DB, postings []posting.Posting) []Networth
 			WithdrawalAmount:    withdrawal,
 			GainAmount:          gain,
 			BalanceAmount:       balance,
+			BalanceUnits:        balanceUnits,
 			NetInvestmentAmount: netInvestment,
 		})
 

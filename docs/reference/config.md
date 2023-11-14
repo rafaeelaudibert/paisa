@@ -1,3 +1,7 @@
+---
+description: "Full list of configuration options supported by Paisa along with their description"
+---
+
 # Configuration
 
 All the configuration related to paisa is stored in a yaml file named
@@ -15,21 +19,32 @@ configuration file named `paisa/paisa.yaml` inside User Documents folder. The
 default configuration is tuned for Indians, users from other countries
 would have to change the `default_currency` and `locale`.
 
+### Accounts
+
+In many places, paisa expects you to specify a list of accounts. You
+can type the full account name like `#!ledger
+Account:Equity:APPL`. Paisa also supports wildcard `*`, you can use
+`#!ledger Account:Equity:*` to represent all accounts under
+Equity. It's also possible to use negation. `#!ledger !Expenses:Tax`
+will match all accounts except Tax. If you use negation, then all the
+accounts should be negation. Don't mix negation with others, if done
+the behavior will be undefined.
+
 ```yaml
 # Path to your journal file. It can be absolute or relative to the
 # configuration file. The main journal file can refer other files using
 # `include` as long as all the files are in the same or sub directory
 # REQUIRED
-journal_path: /home/john/finance/main.ledger
+journal_path: /home/john/Documents/paisa/main.ledger
 
 # Path to your database file. It can be absolute or relative to the
 # configuration file. The database file will be created if it does not exist.
 # REQUIRED
-db_path: /home/john/finance/paisa.db
+db_path: /home/john/Documents/paisa/paisa.db
 
 # The ledger client to use
-# OPTIONAL, DEFAULT: ledger, ENUM: ledger, hledger
-ledger_cli: hledger
+# OPTIONAL, DEFAULT: ledger, ENUM: ledger, hledger, beancount
+ledger_cli: ledger
 
 # The default currency to use. NOTE: Paisa tries to convert other
 # currencies to default currency, so make sure it's possible to
@@ -49,6 +64,12 @@ locale: en-IN
 #
 # OPTIONAL, DEFAULT: 4
 financial_year_starting_month: 4
+
+## Budget
+budget:
+  # Rollover unspent money to next month
+  # OPTIONAL, ENUM: yes, no DEFAULT: yes
+  rollover: "yes"
 
 ## Retirement
 retirement:
@@ -157,4 +178,30 @@ commodities:
       code: AAPL
     harvest: 1095
     tax_category: equity65
+
+## Import Templates
+# OPTIONAL, DEFAULT: []
+import_templates:
+  - name: SBI Account Statement
+    # Required
+    content: |
+      {{#if (isDate ROW.A "D MMM YYYY")}}
+        {{date ROW.A "D MMM YYYY"}} {{ROW.C}}
+        {{#if (isBlank ROW.F)}}
+          {{predictAccount prefix="Expenses"}}      {{amount ROW.E}} INR
+          Assets:Checking:SBI
+        {{else}}
+          Assets:Checking:SBI                       {{amount ROW.F}} INR
+          {{predictAccount prefix="Income"}}
+        {{/if}}
+      {{/if}}
+    # Should be a valid handlebar template
+
+## Accounts: account customization
+# OPTIONAL, DEFAULT: []
+accounts:
+  - name: Liabilities:CreditCard:IDFC
+    # Required, name of the account
+    icon: arcticons:idfc-first-bank
+    # Optional, use the UI to select the icon.
 ```

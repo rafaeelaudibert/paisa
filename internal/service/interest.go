@@ -57,6 +57,24 @@ func ClearInterestCache() {
 	irepaymentCache = interestRepaymentCache{}
 }
 
+func CapitalGainsSourceAccount(account string) string {
+	parts := strings.Split(account, ":")
+	return "Assets:" + strings.Join(parts[2:], ":")
+}
+
+func CapitalGainsAccount(account string) string {
+	parts := strings.Split(account, ":")
+	return "Income:CapitalGains:" + strings.Join(parts[1:], ":")
+}
+
+func IsCapitalGains(p posting.Posting) bool {
+	if utils.IsParent(p.Account, "Income:CapitalGains") {
+		return true
+	}
+
+	return false
+}
+
 func IsStockSplit(db *gorm.DB, p posting.Posting) bool {
 	tcache.Do(func() { loadTransactionCache(db) })
 
@@ -75,6 +93,26 @@ func IsStockSplit(db *gorm.DB, p posting.Posting) bool {
 		}
 	}
 	return true
+}
+
+func IsSellWithCapitalGains(db *gorm.DB, p posting.Posting) bool {
+	tcache.Do(func() { loadTransactionCache(db) })
+
+	if utils.IsCurrency(p.Commodity) {
+		return false
+	}
+
+	t, found := tcache.transactions[p.TransactionID]
+	if !found {
+		return false
+	}
+
+	for _, tp := range t.Postings {
+		if IsCapitalGains(tp) {
+			return true
+		}
+	}
+	return false
 }
 
 func IsInterestRepayment(db *gorm.DB, p posting.Posting) bool {

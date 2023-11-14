@@ -1,15 +1,14 @@
 <script lang="ts">
   import BudgetCard from "$lib/components/BudgetCard.svelte";
-  import { ajax, formatCurrency, type AccountBudget, type Budget, helpUrl } from "$lib/utils";
+  import { ajax, formatCurrency, type AccountBudget, type Budget, helpUrl, now } from "$lib/utils";
   import _ from "lodash";
   import { onMount } from "svelte";
   import { month, setAllowedDateRange } from "../../../store";
-  import dayjs from "dayjs";
   import COLORS from "$lib/colors";
   import LevelItem from "$lib/components/LevelItem.svelte";
   import ZeroState from "$lib/components/ZeroState.svelte";
 
-  const monthStart = dayjs().startOf("month");
+  const monthStart = now().startOf("month");
   let budgetsByMonth: Record<string, Budget> = {};
   let currentMonthAccountBudgets: AccountBudget[] = [];
   let currentMonthBudget: Budget;
@@ -67,7 +66,7 @@
       {/if}
       <div class="column">
         <div class="is-flex">
-          <div style="max-width: 800px; min-width: 500px; width: 100%; margin: auto;">
+          <div style="max-width: 800px; min-width: 350px; width: 100%; margin: auto;">
             <ZeroState item={!isEmpty}>
               <strong>Oops!</strong> You haven't set a budget yet. Checkout the
               <a href={helpUrl("budget")}>docs</a> page to get started.

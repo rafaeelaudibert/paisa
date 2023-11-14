@@ -51,7 +51,7 @@
   <div class="container is-fluid">
     <div class="columns">
       <div class="column is-12">
-        <div class="box">
+        <div class="box overflow-x-auto">
           <table class="table is-narrow is-fullwidth is-hoverable">
             <thead>
               <tr>
@@ -63,13 +63,14 @@
                 <th class="has-text-right">APR</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="has-text-grey-dark">
               {#each Object.values(breakdowns) as b}
                 {@const indent = _.repeat("&emsp;&emsp;", depth(b.group) - 1)}
                 {@const changeClass = calculateChangeClass(-b.interest_amount)}
                 <tr>
-                  <td style="max-width: 200px; overflow: hidden;"
-                    >{@html indent}{iconText(b.group)}
+                  <td class="whitespace-nowrap" style="max-width: 200px; overflow: hidden;"
+                    >{@html indent}<span class="has-text-grey custom-icon">{iconText(b.group)}</span
+                    >
                     {lastName(b.group)}</td
                   >
                   <td class="has-text-right"

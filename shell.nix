@@ -8,10 +8,17 @@ pkgs.mkShell {
     pkgs.sqlite
     pkgs.nodejs-18_x
     pkgs.libuuid
+    pkgs.bun
+    pkgs.node2nix
     # pkgs.pkgsCross.mingwW64.buildPackages.gcc
 
     pkgs.python311Packages.mkdocs
     pkgs.python311Packages.mkdocs-material
+    pkgs.python311Packages.beancount
+
+    # test
+    pkgs.ledger
+    pkgs.hledger
   ] ++ (pkgs.lib.optional pkgs.stdenv.isLinux pkgs.wails);
 
   shellHook = ''

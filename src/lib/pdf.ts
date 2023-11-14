@@ -1,10 +1,5 @@
 import * as pdfjs from "pdfjs-dist";
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
-import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.js?url";
-
-if (pdfjs.GlobalWorkerOptions) {
-  pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
-}
 
 export type TextItemWithPosition = TextItem & {
   x: number;
@@ -36,11 +31,16 @@ function _transform(x: number, y: number, transform: number[]) {
   return [xt, yt];
 }
 
+const WORD_SPACE_TOLERANCE = 0.5;
+
 function makeRow(cells: TextItemWithPosition[]): string[] {
   const row = [];
   let lastCell: TextItemWithPosition;
   for (const cell of cells) {
-    if (lastCell !== undefined && Math.abs(cell.x - (lastCell.x + lastCell.width)) < 0.5) {
+    if (
+      lastCell !== undefined &&
+      Math.abs(cell.x - (lastCell.x + lastCell.width)) < WORD_SPACE_TOLERANCE
+    ) {
       row[row.length - 1] += cell.str;
     } else {
       row.push(cell.str);

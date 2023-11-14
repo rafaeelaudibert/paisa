@@ -1,12 +1,17 @@
 <script lang="ts">
   import type { JSONSchema7 } from "json-schema";
+  import Select from "svelte-select";
   import _ from "lodash";
   import PriceCodeSearchModal from "./PriceCodeSearchModal.svelte";
+  import { iconGlyph, iconsList } from "$lib/icon";
+  import AccountSelect from "./AccountsSelect.svelte";
 
   interface Schema extends JSONSchema7 {
     "ui:header"?: string;
     "ui:widget"?: string;
   }
+
+  const ICON_MAX_RESULTS = 200;
 
   export let key: string;
   export let value: any;
@@ -15,6 +20,7 @@
   export let required = false;
   export let deletable: () => void = null;
   export let disabled: boolean = false;
+  export let allAccounts: string[];
 
   export let modalOpen = false;
 
@@ -41,6 +47,17 @@
     }
     return null;
   }
+
+  async function searchIcons(text: string) {
+    text = text.toLowerCase();
+    if (_.isEmpty(text)) {
+      return _.take(iconsList, ICON_MAX_RESULTS);
+    }
+    return _.take(
+      iconsList.filter((icon) => icon.includes(text)),
+      ICON_MAX_RESULTS
+    );
+  }
 </script>
 
 {#if deletable}
@@ -51,7 +68,57 @@
   </a>
 {/if}
 
-{#if schema.type === "string" || _.isEqual(schema.type, ["string", "integer"])}
+{#if schema["ui:widget"] == "hidden"}
+  <div></div>
+{:else if schema["ui:widget"] == "icon"}
+  <div class="field is-horizontal">
+    <div class="field-label is-small">
+      <label for="" data-tippy-content={documentation(schema)} class="label">{title}</label>
+    </div>
+    <div class="field-body">
+      <div class="field">
+        <div class="control" style="max-width: 350px">
+          <Select
+            bind:justValue={value}
+            class="icon-select is-small"
+            {value}
+            showChevron={true}
+            loadOptions={searchIcons}
+            searchable={true}
+            clearable={!required}
+          >
+            <div class="custom-icon" slot="selection" let:selection>
+              <span>{iconGlyph(selection.value)} {selection.value}</span>
+            </div>
+            <div class="custom-icon" slot="item" let:item>
+              <span class="name">{iconGlyph(item.value)} {item.value}</span>
+            </div>
+          </Select>
+        </div>
+      </div>
+    </div>
+  </div>
+{:else if schema["ui:widget"] == "boolean"}
+  <div class="field is-horizontal">
+    <div class="field-label is-small">
+      <label for="" data-tippy-content={documentation(schema)} class="label">{title}</label>
+    </div>
+    <div class="field-body">
+      <div class="field">
+        <div class="control">
+          <label class="radio">
+            <input value="yes" bind:group={value} type="radio" name="yes" />
+            Yes
+          </label>
+          <label class="radio">
+            <input value="no" bind:group={value} type="radio" name="no" />
+            No
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+{:else if schema.type === "string" || _.isEqual(schema.type, ["string", "integer"])}
   <div class="field is-horizontal">
     <div class="field-label is-small">
       <label data-tippy-content={documentation(schema)} for="" class="label">{title}</label>
@@ -67,6 +134,17 @@
                 {/each}
               </select>
             </div>
+          {:else if schema["ui:widget"] == "textarea"}
+            <textarea
+              {disabled}
+              {required}
+              class="textarea is-small"
+              style="min-width: 350px;max-width: 350px; width: 350px;"
+              rows="5"
+              bind:value
+              spellcheck="false"
+              data-enable-grammarly="false"
+            />
           {:else}
             <input
               {disabled}
@@ -104,6 +182,19 @@
       </div>
     </div>
   </div>
+{:else if schema["ui:widget"] == "accounts"}
+  <div class="field is-horizontal">
+    <div class="field-label is-small">
+      <label for="" data-tippy-content={documentation(schema)} class="label">{title}</label>
+    </div>
+    <div class="field-body">
+      <div class="field">
+        <div class="control pr-5">
+          <AccountSelect {allAccounts} bind:accounts={value} />
+        </div>
+      </div>
+    </div>
+  </div>
 {:else if schema["ui:widget"] == "price"}
   <div class="config-header">
     <a class="is-link" data-tippy-content={documentation(schema)}>
@@ -128,6 +219,7 @@
   <div class="config-body {depth % 2 == 1 ? 'odd' : 'even'}">
     {#each sortedProperties(schema) as [key, subSchema]}
       <svelte:self
+        {allAccounts}
         required={_.includes(schema.required || [], key)}
         depth={depth + 1}
         {key}
@@ -155,6 +247,7 @@
     <div class="config-body {depth % 2 == 1 ? 'odd' : 'even'}">
       {#each sortedProperties(schema) as [key, subSchema]}
         <svelte:self
+          {allAccounts}
           required={_.includes(schema.required || [], key)}
           depth={depth + 1}
           {key}
@@ -189,6 +282,7 @@
     <div class="config-body {depth % 2 == 1 ? 'odd' : 'even'}">
       {#each value as _item, i}
         <svelte:self
+          {allAccounts}
           deletable={() => {
             value.splice(i, 1);
             value = [...value];

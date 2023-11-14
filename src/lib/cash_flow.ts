@@ -5,7 +5,9 @@ import {
   restName,
   type CashFlow,
   skipTicks,
-  lastName
+  lastName,
+  parentName,
+  rem
 } from "$lib/utils";
 import legend from "d3-svg-legend";
 import * as d3 from "d3";
@@ -28,9 +30,14 @@ export function renderMonthlyFlow(
     balance: 0
   }
 ) {
-  const MAX_BAR_WIDTH = 20;
+  const MAX_BAR_WIDTH = rem(20);
   const svg = d3.select(id),
-    margin = { top: 50, right: 30, bottom: options.rotate ? 50 : 20, left: 40 },
+    margin = {
+      top: rem(50),
+      right: rem(30),
+      bottom: options.rotate ? rem(50) : rem(20),
+      left: rem(40)
+    },
     width =
       document.getElementById(id.substring(1)).parentElement.clientWidth -
       margin.left -
@@ -43,7 +50,7 @@ export function renderMonthlyFlow(
     .strokeWidth(1)
     .size(4)
     .orientation("vertical")
-    .background(chroma(COLORS.expenses).brighten().hex())
+    .background(chroma(COLORS.expenses).brighten(1.5).hex())
     .stroke(COLORS.expenses);
   svg.call(texture);
 
@@ -67,7 +74,7 @@ export function renderMonthlyFlow(
     y = d3.scaleLinear().range([height, 0]),
     z = d3.scaleOrdinal<string>(colors).domain(areaKeys);
 
-  const x1 = d3.scaleBand().domain(["0", "1"]).paddingInner(0).paddingOuter(0.1);
+  const x1 = d3.scaleBand().domain(["0", "1"]).paddingInner(0.1).paddingOuter(0.1);
 
   const xAxis = g
     .append("g")
@@ -81,7 +88,7 @@ export function renderMonthlyFlow(
   const line = g
     .append("path")
     .attr("stroke", COLORS.primary)
-    .attr("stroke-width", "1px")
+    .attr("stroke-width", "2px")
     .attr("fill", "none");
 
   const tooltipRects = g.append("g");
@@ -213,6 +220,7 @@ export function renderMonthlyFlow(
               }
               return z(d.key);
             })
+            .attr("fill-opacity", 0.6)
             .attr("x", (d: any) =>
               d[0].data.i === "0"
                 ? x1(d[0].data.i) + x1.bandwidth() - Math.min(x1.bandwidth(), MAX_BAR_WIDTH)
@@ -281,9 +289,9 @@ export function renderMonthlyFlow(
 export function renderFlow(graph: Graph, cashflowType: string) {
   const id = "#d3-expense-flow";
   const svg = d3.select(id);
-  const margin = { top: 20, right: 20, bottom: 0, left: 20 },
+  const margin = { top: rem(20), right: rem(20), bottom: 0, left: rem(20) },
     width =
-      document.getElementById(id.substring(1)).parentElement.clientWidth -
+      Math.max(document.getElementById(id.substring(1)).parentElement.clientWidth, 1000) -
       margin.left -
       margin.right,
     height = +svg.attr("height") - margin.top - margin.bottom;
@@ -308,7 +316,7 @@ export function renderFlow(graph: Graph, cashflowType: string) {
     .legendColor()
     .shape("rect")
     .orient("horizontal")
-    .shapePadding(50)
+    .shapePadding(rem(50))
     .labels(accounts)
     .scale(color);
 
@@ -321,7 +329,7 @@ export function renderFlow(graph: Graph, cashflowType: string) {
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
   const sankey = sankeyCircular()
-    .nodeWidth(20)
+    .nodeWidth(rem(20))
     .nodePaddingRatio(0.7)
     .size([width, height])
     .nodeId((d: Node) => d.id)
@@ -340,7 +348,7 @@ export function renderFlow(graph: Graph, cashflowType: string) {
     .append("g")
     .attr("class", "nodes")
     .attr("font-family", "sans-serif")
-    .attr("font-size", 10)
+    .attr("font-size", "0.754rem")
     .selectAll("g");
 
   const sankeyData = sankey(graph);
@@ -393,12 +401,7 @@ export function renderFlow(graph: Graph, cashflowType: string) {
       return "middle";
     })
     .classed("svg-text-grey-dark", true)
-    .text(
-      (d: any) =>
-        `${iconify(name(d, cashflowType), { group: firstName(d.name) })} ${formatCurrencyCrude(
-          d.value
-        )}`
-    );
+    .text((d: any) => `${name(d, cashflowType)} ${formatCurrencyCrude(d.value)}`);
 
   const link = linkG.data(sankeyLinks).enter().append("g");
 
@@ -427,12 +430,17 @@ export function renderFlow(graph: Graph, cashflowType: string) {
 }
 
 function name(node: Node, cashflowType: string) {
+  let name: string, group: string;
   if (
     cashflowType === "hierarchy" &&
     (node.name.startsWith("Income") || node.name.startsWith("Expenses"))
   ) {
-    return lastName(node.name);
+    name = lastName(node.name);
+    group = parentName(node.name);
+  } else {
+    name = restName(node.name);
+    group = firstName(node.name);
   }
 
-  return restName(node.name);
+  return iconify(name, { group: group });
 }

@@ -45,7 +45,7 @@ db_path: '%s'
 	log.Info("Generating config file: ", configFilePath)
 	journalFilePath := filepath.Join(cwd, "main.ledger")
 	dbFilePath := filepath.Join(cwd, "paisa.db")
-	err := os.WriteFile(configFilePath, []byte(fmt.Sprintf(config, journalFilePath, dbFilePath)), 0644)
+	err := os.WriteFile(configFilePath, []byte(fmt.Sprintf(config, filepath.Base(journalFilePath), filepath.Base(dbFilePath))), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -69,18 +69,27 @@ journal_path: '%s'
 db_path: '%s'
 ledger_cli: ledger
 default_currency: INR
-retirement:
-  swr: 3
+goals:
+  retirement:
+    - name: Early Retirement
+      icon: mdi:palm-tree
+      swr: 3
+      savings:
+        - Assets:Debt:*
+        - Assets:Equity:*
+      expenses:
+        - Expenses:Rent
+        - Expenses:Utilities
+        - Expenses:Shopping
+        - Expenses:Restaurants
+        - Expenses:Food
+        - Expenses:Interest:*
   savings:
-    - Assets:Debt:*
-    - Assets:Equity:*
-  expenses:
-    - Expenses:Rent
-    - Expenses:Utilities
-    - Expenses:Shopping
-    - Expenses:Restaurants
-    - Expenses:Food
-    - Expenses:Interest:*
+    - name: Millionaire
+      icon: mdi:car-sports
+      target: 80000000
+      accounts:
+        - '!Assets:Checking'
 allocation_targets:
   - name: Debt
     target: 40
@@ -142,7 +151,7 @@ commodities:
 	log.Info("Generating config file: ", configFilePath)
 	journalFilePath := filepath.Join(cwd, "main.ledger")
 	dbFilePath := filepath.Join(cwd, "paisa.db")
-	err := os.WriteFile(configFilePath, []byte(fmt.Sprintf(config, journalFilePath, dbFilePath)), 0644)
+	err := os.WriteFile(configFilePath, []byte(fmt.Sprintf(config, filepath.Base(journalFilePath), filepath.Base(dbFilePath))), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -387,9 +396,11 @@ func generateJournalFile(cwd string) {
 	_, err = ledgerFile.WriteString(`
 = Expenses:Rent
     ; Recurring: Rent
+    ; Period: 1 * ?
 
 = expr payee=~/Internet/
     ; Recurring: Internet
+    ; Period: 1 * ?
 
 = expr payee=~/EPF/
     ; Recurring: EPF

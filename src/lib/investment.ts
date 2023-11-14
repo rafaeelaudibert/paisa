@@ -1,6 +1,5 @@
 import * as d3 from "d3";
 import legend from "d3-svg-legend";
-import dayjs from "dayjs";
 import _ from "lodash";
 import {
   forEachMonth,
@@ -11,9 +10,12 @@ import {
   secondName,
   skipTicks,
   tooltip,
-  type InvestmentYearlyCard
+  type InvestmentYearlyCard,
+  rem,
+  now
 } from "./utils";
 import { generateColorScheme } from "./colors";
+import type dayjs from "dayjs";
 
 function financialYear(card: InvestmentYearlyCard) {
   return `${card.start_date.format("YYYY")} - ${card.end_date.format("YY")}`;
@@ -22,9 +24,9 @@ function financialYear(card: InvestmentYearlyCard) {
 export function renderMonthlyInvestmentTimeline(postings: Posting[]) {
   const id = "#d3-investment-timeline";
   const timeFormat = "MMM-YYYY";
-  const MAX_BAR_WIDTH = 40;
+  const MAX_BAR_WIDTH = rem(40);
   const svg = d3.select(id),
-    margin = { top: 40, right: 30, bottom: 60, left: 40 },
+    margin = { top: rem(40), right: rem(30), bottom: rem(60), left: rem(40) },
     width =
       document.getElementById(id.substring(1)).parentElement.clientWidth -
       margin.left -
@@ -45,7 +47,7 @@ export function renderMonthlyInvestmentTimeline(postings: Posting[]) {
   );
 
   const start = _.min(_.map(postings, (p) => p.date)),
-    end = dayjs().startOf("month");
+    end = now().startOf("month");
   const ts = _.groupBy(postings, (p) => p.date.format(timeFormat));
 
   interface Point {
@@ -197,9 +199,9 @@ export function renderMonthlyInvestmentTimeline(postings: Posting[]) {
 
 export function renderYearlyInvestmentTimeline(yearlyCards: InvestmentYearlyCard[]) {
   const id = "#d3-yearly-investment-timeline";
-  const BAR_HEIGHT = 20;
+  const BAR_HEIGHT = rem(20);
   const svg = d3.select(id),
-    margin = { top: 40, right: 20, bottom: 20, left: 70 },
+    margin = { top: rem(50), right: rem(20), bottom: rem(20), left: rem(70) },
     width =
       document.getElementById(id.substring(1)).parentElement.clientWidth -
       margin.left -
@@ -352,13 +354,13 @@ export function renderYearlyInvestmentTimeline(yearlyCards: InvestmentYearlyCard
     })
     .attr("height", y.bandwidth());
 
-  svg.append("g").attr("class", "legendOrdinal").attr("transform", "translate(40,0)");
+  svg.append("g").attr("class", "legendOrdinal").attr("transform", `translate(${margin.top},0)`);
 
   const legendOrdinal = legend
     .legendColor()
     .shape("rect")
     .orient("horizontal")
-    .shapePadding(100)
+    .shapePadding(rem(100))
     .labels(groups)
     .scale(z);
 

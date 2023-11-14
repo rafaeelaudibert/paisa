@@ -1,15 +1,36 @@
 /// <reference types="@sveltejs/kit" />
+// https://github.com/oven-sh/bun/issues/5134
+/// <reference lib="dom" />
+/// <reference lib="dom.iterable" />
+/// <reference lib="esnext" />
+/// <reference lib="webworker" />
 
 interface UserConfig {
   default_currency: string;
+  readonly: boolean;
   locale: string;
   journal_path: string;
+  display_precision: number;
   db_path: string;
   financial_year_starting_month: number;
+  accounts: {
+    name: string;
+    icon: string;
+  }[];
+}
+
+interface Runtime {
+  BrowserOpenURL: (url: string) => void;
 }
 
 // eslint-disable-next-line no-var
+declare var runtime: Runtime;
+
+// eslint-disable-next-line no-var
 declare var USER_CONFIG: UserConfig;
+
+// eslint-disable-next-line no-var
+declare var __now: any;
 
 declare namespace App {
   // interface Error {}

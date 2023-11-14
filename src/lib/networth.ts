@@ -1,11 +1,10 @@
 import * as d3 from "d3";
 import { Delaunay } from "d3";
 import legend from "d3-svg-legend";
-import dayjs from "dayjs";
 import _ from "lodash";
 import tippy from "tippy.js";
 import COLORS from "./colors";
-import { formatCurrency, isMobile } from "./utils";
+import { formatCurrency, isMobile, now } from "./utils";
 import { formatCurrencyCrude, tooltip, type Networth } from "./utils";
 
 function networth(d: Networth) {
@@ -18,7 +17,7 @@ function investment(d: Networth) {
 
 export function renderNetworth(points: Networth[], element: Element): () => void {
   const start = _.min(_.map(points, (p) => p.date)),
-    end = dayjs();
+    end = now();
 
   const svg = d3.select(element);
 
@@ -26,9 +25,11 @@ export function renderNetworth(points: Networth[], element: Element): () => void
 
   const right = isMobile() ? 10 : 80,
     margin = { top: 40, right: right, bottom: 20, left: 40 },
-    width = element.parentElement.clientWidth - margin.left - margin.right,
+    width = Math.max(element.parentElement.clientWidth, 800) - margin.left - margin.right,
     height = +svg.attr("height") - margin.top - margin.bottom,
     g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  svg.attr("width", width + margin.left + margin.right);
 
   const areaKeys = ["gain", "loss"];
   const colors = [COLORS.gain, COLORS.loss];
@@ -105,7 +106,7 @@ export function renderNetworth(points: Networth[], element: Element): () => void
     .append("path")
     .attr("clip-path", `url(${new URL("#" + clipAboveID, window.location.toString())})`)
     .style("fill", z("gain"))
-    .style("opacity", "0.8")
+    .style("fill-opacity", "0.4")
     .attr(
       "d",
       area(0, (d) => {
@@ -117,7 +118,7 @@ export function renderNetworth(points: Networth[], element: Element): () => void
     .append("path")
     .attr("clip-path", `url(${new URL("#" + clipBelowID, window.location.toString())})`)
     .style("fill", z("loss"))
-    .style("opacity", "0.8")
+    .style("fill-opacity", "0.4")
     .attr(
       "d",
       area(height, (d) => {

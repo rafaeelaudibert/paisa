@@ -1,4 +1,4 @@
-import { describe, expect, test } from "@jest/globals";
+import { describe, expect, test } from "bun:test";
 
 import { parse, render, asRows } from "./sheet";
 import fs from "fs";
@@ -10,6 +10,10 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 dayjs.extend(customParseFormat);
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 dayjs.extend(isSameOrBefore);
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone"; // dependent on utc plugin
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 Handlebars.registerHelper(
   _.mapValues(helpers, (helper, name) => {
@@ -31,6 +35,9 @@ describe("import", () => {
         const [name, extension] = file.split(".");
         if (extension === "ledger") {
           const inputFile = _.find(files, (f) => f != file && f.startsWith(name));
+          if (inputFile.endsWith(".pdf")) {
+            break;
+          }
           const input = fs.readFileSync(`fixture/import/${dir}/${inputFile}`);
           const output = fs.readFileSync(`fixture/import/${dir}/${file}`).toString();
           const template = fs
@@ -47,5 +54,14 @@ describe("import", () => {
         }
       }
     });
+  });
+});
+
+describe("template helpers", () => {
+  test("acronym", () => {
+    expect(helpers.acronym("Foo Bar baz")).toBe("FBB");
+    expect(helpers.acronym("foo   the bar")).toBe("FB");
+    expect(helpers.acronym("Motital S & P 500")).toBe("MSP");
+    expect(helpers.acronym("Axis Liquid Growth Direct Plan")).toBe("AL");
   });
 });

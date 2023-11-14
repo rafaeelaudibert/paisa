@@ -1,3 +1,8 @@
+---
+description: "How to setup envelope budgeting in Paisa, an open source personal finance manager"
+---
+
+
 # Budget
 
 Paisa supports a simple budgeting system. Let's say you get 50000 INR
@@ -116,7 +121,7 @@ next month, assuming you haven't made any further transaction.
 
 ![Next month Budget](/images/budget-4.png)
 
-You can see a new element in the UI called Rollover. This is basically
+You can see a new element in the UI called Rollover[^1]. This is basically
 the amount you have budgeted last month, but haven't spent. This will
 automatically rollover to the next month. That's pretty much it.
 
@@ -126,3 +131,5 @@ To recap, there are just two things you need to do.
 you get your salary.
 
 2) Adjust your budget as you spend and make sure there is no deficit.
+
+[^1]: If you prefer to not have rollover feature, it can be disabled in the [configuration](../reference/config.md) page.

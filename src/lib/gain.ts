@@ -2,7 +2,6 @@ import chroma from "chroma-js";
 import * as d3 from "d3";
 import { Delaunay } from "d3";
 import legend from "d3-svg-legend";
-import dayjs from "dayjs";
 import _ from "lodash";
 import COLORS from "./colors";
 import tippy from "tippy.js";
@@ -15,7 +14,9 @@ import {
   tooltip,
   skipTicks,
   restName,
-  type Posting
+  type Posting,
+  rem,
+  now
 } from "./utils";
 import { goto } from "$app/navigation";
 
@@ -30,17 +31,19 @@ const typeScale = d3
 
 export function renderOverview(gains: Gain[]) {
   gains = _.sortBy(gains, (g) => g.account);
-  const BAR_HEIGHT = 15;
+  const BAR_HEIGHT = rem(15);
   const id = "#d3-gain-overview";
   const svg = d3.select(id),
-    margin = { top: 20, right: 20, bottom: 10, left: 150 },
+    margin = { top: rem(20), right: rem(20), bottom: rem(10), left: rem(150) },
     width =
-      document.getElementById(id.substring(1)).parentElement.clientWidth -
+      Math.max(document.getElementById(id.substring(1)).parentElement.clientWidth, 1000) -
       margin.left -
       margin.right,
     height = gains.length * BAR_HEIGHT * 2,
     g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
   svg.attr("height", height + margin.top + margin.bottom);
+
+  svg.attr("width", width + margin.left + margin.right);
 
   const y = d3.scaleBand().range([0, height]).paddingInner(0).paddingOuter(0);
   y.domain(gains.map((g) => restName(g.account)));
@@ -55,7 +58,7 @@ export function renderOverview(gains: Gain[]) {
     .scaleBand()
     .range([0, y.bandwidth()])
     .domain(["0", "1"])
-    .paddingInner(0)
+    .paddingInner(0.15)
     .paddingOuter(0.6);
 
   const keys = ["balance", "investment", "withdrawal", "gain", "loss"];
@@ -73,10 +76,10 @@ export function renderOverview(gains: Gain[]) {
     .map((g) => getInvestmentAmount(g) + _.max([getGainAmount(g), 0]))
     .max()
     .value();
-  const xirrWidth = 250;
-  const xirrTextWidth = 40;
-  const xirrMargin = 20;
-  const textGroupWidth = 225;
+  const xirrWidth = rem(250);
+  const xirrTextWidth = rem(40);
+  const xirrMargin = rem(20);
+  const textGroupWidth = rem(225);
   const textGroupZero = xirrWidth + xirrTextWidth + xirrMargin;
 
   const x = d3.scaleLinear().range([textGroupZero + textGroupWidth, width]);
@@ -258,6 +261,11 @@ export function renderOverview(gains: Gain[]) {
     .attr("fill", (d) => {
       return z(d.key);
     })
+    .attr("stroke", (d) => {
+      return z(d.key);
+    })
+    .attr("stroke-opacity", (d) => (_.includes(areaKeys, d.key) ? 0.0 : 0.4))
+    .attr("fill-opacity", (d) => (_.includes(areaKeys, d.key) ? 1 : 0.6))
     .attr("x", (d) => x(d[0][0]))
     .attr("y", (d: any) => y2(d[0].data.i))
     .attr("height", y2.bandwidth())
@@ -306,7 +314,7 @@ export function renderOverview(gains: Gain[]) {
 
 export function renderAccountOverview(points: Networth[], postings: Posting[], id: string) {
   const start = _.min(_.map(points, (p) => p.date)),
-    end = dayjs();
+    end = now();
 
   const element = document.getElementById(id);
 

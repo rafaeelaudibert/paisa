@@ -1,3 +1,7 @@
+---
+description: "Tutorial on how to get started with Paisa, an open source personal finance manager"
+---
+
 # Tutorial
 
 This tutorial will introduce all the concepts necessary to get
@@ -23,7 +27,7 @@ comes with an embedded **ledger** and you are not required to use
 
 ## :fontawesome-regular-file-lines: Journal
 
-A journal file captures all your financial transactions. A transaction
+A [journal](../reference/journal.md) file captures all your financial transactions. A transaction
 may represent a mutual fund purchase, retirement contribution, grocery
 purchase and so on. Paisa creates a journal named `main.ledger`, Let's
 add our first transaction there. To open the editor, go to `Ledger`
@@ -130,15 +134,25 @@ month.
     Assets:Equity:NIFTY        140.2870 NIFTY @ 71.2824 INR
     Assets:Equity:NIFTY_JR  363.2242 NIFTY_JR @ 27.5312 INR
 
-2018/03/01 Investment
-    Assets:Checking               -20,000 INR
-    Assets:Equity:NIFTY        147.5908 NIFTY @ 67.7549 INR
-    Assets:Equity:NIFTY_JR  378.4323 NIFTY_JR @ 26.4248 INR
+2018/03/01 Withdrawal
+    Assets:Checking                          6775.49 INR
+    Income:CapitalGains:Equity:NIFTY          -22.68 INR
+    Assets:Equity:NIFTY          -100 NIFTY {67.5281 INR} [2018/01/01] @ 67.7549 INR
 ```
 
 Let's consider `#!ledger 148.0865 NIFTY @ 67.5281 INR`. Here `#!ledger
 NIFTY` is the name of the commodity and we have bought `#!ledger
 148.0865` units at `#!ledger 67.5281 INR` per unit.
+
+The withdrawal transaction is bit more involved. When you buy a
+commodity, you buy them at a specific price on a specific date called
+lot. When you sell, you usually need to record which lot you are
+selling for taxation purpose, usually LIFO. `#!ledger -100 NIFTY
+ {67.5281 INR} [2018/01/01] @ 67.7549 INR` means you are selling
+`#!ledger NIFTY` at price `#!ledger 67.7549 INR` that was bought on
+`#!ledger 2018/01/01` at `#!ledger 67.5281 INR`. The gain or loss
+amount comes from the capital gains account `#!ledger
+Income:CapitalGains:Equity:NIFTY`
 
 Paisa has support for fetching commodity price history from few
 [providers](../reference/commodities.md). Go to `Configuration` page and expand the `Commodities`
@@ -175,7 +189,7 @@ bot side. If you leave one side, **ledger** will deduct it.
 
 All the configuration related to paisa is stored in a yaml file named
 `paisa.yaml`. The configuration can be edited via the web interface. The
-sequence in which it look for the file is described below
+sequence in which it looks for the file is described below
 
 1. `PAISA_CONFIG` environment variable
 1. via `--config` flag
@@ -196,5 +210,5 @@ after you make any changes to your journal file or you want to fetch
 the latest value of the commodities. The update can be performed from
 the UI as well via the dropdown in the top right hand side corner.
 
-[^1]: [hledger](hled) is also supported, refer to the [configuration](../reference/config.md)
-    to see how to modify the `ledger_cli`.
+[^1]: [hledger](https://hledger.org) and [beancount](https://beancount.github.io/) are also supported, refer
+    [Ledger CLI](../reference/ledger-cli.md) for more information.

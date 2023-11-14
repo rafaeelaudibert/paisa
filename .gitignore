@@ -1,9 +1,10 @@
 paisa.db
-paisa.yaml
+/paisa.yaml
 /paisa
+/sample
 web/static
-example.ledger
-main.ledger
+/example.ledger
+/main.ledger
 .DS_Store
 node_modules
 /build
@@ -14,6 +15,12 @@ node_modules
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-*.backup.*
 *.test
 docs/lexer/__pycache__/
+bun.lockb
+svg/*
+fonts/*
+!fonts/*.woff2
+!fonts/*.json
+!fonts/*.scss
+/result

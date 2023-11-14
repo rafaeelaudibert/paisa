@@ -1,5 +1,4 @@
 import dayjs from "dayjs";
-import { sprintf } from "sprintf-js";
 import _ from "lodash";
 import * as d3 from "d3";
 import { loading } from "../store";
@@ -51,14 +50,25 @@ export interface CashFlow {
   balance: number;
 }
 
-export interface TransactionSequenceKey {
-  tagRecurring: string;
+export interface TransactionSchedule {
+  actual: dayjs.Dayjs;
+  scheduled: dayjs.Dayjs;
+  transaction: Transaction;
+  key: string;
+  amount: number;
 }
 
 export interface TransactionSequence {
   transactions: Transaction[];
-  key: TransactionSequenceKey;
+  period: string;
+  key: string;
   interval: number;
+
+  // computed
+  schedules: TransactionSchedule[];
+  pastSchedules: TransactionSchedule[];
+  futureSchedules: TransactionSchedule[];
+  schedulesByMonth: Record<string, TransactionSchedule[]>;
 }
 
 export interface Transaction {
@@ -86,6 +96,7 @@ export interface Networth {
   withdrawalAmount: number;
   gainAmount: number;
   balanceAmount: number;
+  balanceUnits: number;
   netInvestmentAmount: number;
 }
 
@@ -318,12 +329,26 @@ export interface AccountBudget {
   expenses: Posting[];
 }
 
-export interface RetirementProgress {
-  savings_total: number;
-  savings_timeline: Point[];
+export interface RetirementGoalProgress {
+  savingsTotal: number;
+  savingsTimeline: Point[];
   swr: number;
-  yearly_expense: number;
+  yearlyExpense: number;
   xirr: number;
+  name: string;
+  type: string;
+  icon: string;
+}
+
+export interface SavingsGoalProgress {
+  savingsTotal: number;
+  savingsTimeline: Point[];
+  target: number;
+  xirr: number;
+  postings: Posting[];
+  name: string;
+  type: string;
+  icon: string;
 }
 
 export interface LedgerFile {
@@ -390,8 +415,8 @@ export interface Graph {
   links: Link[];
 }
 
-export interface Template {
-  id: number;
+export interface ImportTemplate {
+  id: string;
   name: string;
   content: string;
   template_type: string;
@@ -401,6 +426,14 @@ export interface Log {
   time: dayjs.Dayjs;
   level: string;
   msg: string;
+}
+
+export interface GoalSummary {
+  type: string;
+  name: string;
+  icon: string;
+  current: number;
+  target: number;
 }
 
 const BACKGROUND = [
@@ -417,8 +450,9 @@ const BACKGROUND = [
   "/api/price/providers"
 ];
 
-export function ajax(route: "/api/config"): Promise<{ config: UserConfig; schema: JSONSchema7 }>;
-export function ajax(route: "/api/retirement/progress"): Promise<RetirementProgress>;
+export function ajax(
+  route: "/api/config"
+): Promise<{ config: UserConfig; schema: JSONSchema7; now: dayjs.Dayjs; accounts: string[] }>;
 export function ajax(route: "/api/harvest"): Promise<{ harvestables: Record<string, Harvestable> }>;
 export function ajax(
   route: "/api/capital_gains"
@@ -511,9 +545,24 @@ export function ajax(route: "/api/liabilities/interest"): Promise<{
   interest_timeline_breakdown: Interest[];
 }>;
 
+export function ajax(route: "/api/goals"): Promise<{ goals: GoalSummary[] }>;
+export function ajax(
+  route: "/api/goals/retirement/:name",
+  options?: RequestInit,
+  params?: Record<string, string>
+): Promise<RetirementGoalProgress>;
+export function ajax(
+  route: "/api/goals/savings/:name",
+  options?: RequestInit,
+  params?: Record<string, string>
+): Promise<SavingsGoalProgress>;
+
 export function ajax(route: "/api/account/tf_idf"): Promise<AccountTfIdf>;
-export function ajax(route: "/api/templates"): Promise<{ templates: Template[] }>;
-export function ajax(route: "/api/templates/upsert", options?: RequestInit): Promise<Template>;
+export function ajax(route: "/api/templates"): Promise<{ templates: ImportTemplate[] }>;
+export function ajax(
+  route: "/api/templates/upsert",
+  options?: RequestInit
+): Promise<ImportTemplate>;
 export function ajax(route: "/api/templates/delete", options?: RequestInit): Promise<void>;
 
 export function ajax(route: "/api/editor/files"): Promise<{
@@ -543,7 +592,10 @@ export function ajax(
   options?: RequestInit
 ): Promise<{ file: LedgerFile }>;
 
-export function ajax(route: "/api/sync", options?: RequestInit): Promise<any>;
+export function ajax(
+  route: "/api/sync",
+  options?: RequestInit
+): Promise<{ success: boolean; message: string }>;
 export function ajax(
   route: "/api/price/providers",
   options?: RequestInit
@@ -595,7 +647,7 @@ export async function ajax(route: string, options?: RequestInit, params?: Record
   return JSON.parse(body, (key, value) => {
     if (
       _.isString(value) &&
-      /date|time/.test(key) &&
+      /date|time|now/.test(key) &&
       /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$/.test(
         value
       )
@@ -610,14 +662,41 @@ function obscure() {
   return localStorage.getItem("obscure") == "true";
 }
 
-export function formatCurrency(value: number, precision = 0) {
+function normalize(value: number) {
   if (obscure()) {
-    return "00";
+    value = 0;
   }
 
   // minus 0
   if (1 / value === -Infinity) {
     value = 0;
+  }
+
+  if (!Number.isFinite(value)) {
+    value = 0;
+  }
+
+  return value;
+}
+
+export function setNow(value: dayjs.Dayjs) {
+  if (value) {
+    globalThis.__now = value;
+  }
+}
+
+export function now() {
+  if (globalThis.__now) {
+    return globalThis.__now;
+  }
+  return dayjs();
+}
+
+export function formatCurrency(value: number, precision: number = null) {
+  value = normalize(value);
+
+  if (precision == null) {
+    precision = USER_CONFIG.display_precision;
   }
 
   return value.toLocaleString(USER_CONFIG.locale, {
@@ -631,9 +710,7 @@ export function formatCurrencyCrude(value: number) {
 }
 
 export function formatCurrencyCrudeWithPrecision(value: number, precision: number) {
-  if (obscure()) {
-    return "00";
-  }
+  value = normalize(value);
 
   const options: Intl.NumberFormatOptions = {
     notation: "compact"
@@ -650,25 +727,24 @@ export function formatCurrencyCrudeWithPrecision(value: number, precision: numbe
 }
 
 export function formatFloat(value: number, precision = 2) {
-  if (obscure()) {
-    return "00";
-  }
-  return sprintf(`%.${precision}f`, value);
+  value = normalize(value);
+
+  return value.toLocaleString(USER_CONFIG.locale, {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision
+  });
+}
+
+export function formatFloatUptoPrecision(value: number, precision = 2) {
+  value = normalize(value);
+
+  return value.toLocaleString(USER_CONFIG.locale, {
+    maximumFractionDigits: precision
+  });
 }
 
 export function formatPercentage(value: number, precision = 0) {
-  if (obscure()) {
-    return "00";
-  }
-
-  if (!Number.isFinite(value)) {
-    value = 0;
-  }
-
-  // minus 0
-  if (1 / value === -Infinity) {
-    value = 0;
-  }
+  value = normalize(value);
 
   return value.toLocaleString(USER_CONFIG.locale, {
     style: "percent",
@@ -677,10 +753,17 @@ export function formatPercentage(value: number, precision = 0) {
 }
 
 export function formatFixedWidthFloat(value: number, width: number, precision = 2) {
-  if (obscure()) {
-    value = 0;
+  value = normalize(value);
+
+  const formatted = value.toLocaleString(USER_CONFIG.locale, {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision
+  });
+
+  if (formatted.length < width) {
+    return formatted.padStart(width, " ");
   }
-  return sprintf(`%${width}.${precision}f`, value);
+  return formatted;
 }
 
 export function forEachMonth(
@@ -756,12 +839,13 @@ export function depth(account: string) {
 export function skipTicks<Domain>(
   minWidth: number,
   scale: d3.AxisScale<Domain>,
-  cb: (data: d3.AxisDomain, index: number) => string
+  cb: (data: d3.AxisDomain, index: number) => string,
+  points?: number
 ) {
   const range = scale.range();
   const width = Math.abs(range[1] - range[0]);
   const s = scale as any;
-  const points = s.ticks ? s.ticks().length : s.domain().length;
+  points = points || (s.ticks ? s.ticks().length : s.domain().length);
   return function (data: d3.AxisDomain, index: number) {
     let skip = Math.round((minWidth * points) / width);
     skip = Math.max(1, skip);
@@ -837,7 +921,15 @@ export function tooltip(
 }
 
 export function isMobile() {
-  return window.innerWidth < 1024;
+  return window.innerWidth < 769;
+}
+
+export function rem(value: number) {
+  if (isMobile()) {
+    return value * 0.857;
+  } else {
+    return value;
+  }
 }
 
 export function financialYear(date: dayjs.Dayjs) {
@@ -866,60 +958,6 @@ export function postingUrl(posting: Posting) {
   }`;
 }
 
-export function intervalText(ts: TransactionSequence) {
-  if (ts.interval >= 7 && ts.interval <= 8) {
-    return "weekly";
-  }
-
-  if (ts.interval >= 14 && ts.interval <= 16) {
-    return "bi-weekly";
-  }
-
-  if (ts.interval >= 28 && ts.interval <= 33) {
-    return "monthly";
-  }
-
-  if (ts.interval >= 87 && ts.interval <= 100) {
-    return "quarterly";
-  }
-
-  if (ts.interval >= 175 && ts.interval <= 190) {
-    return "half-yearly";
-  }
-
-  if (ts.interval >= 350 && ts.interval <= 395) {
-    return "yearly";
-  }
-
-  return `every ${ts.interval} days`;
-}
-
-export function nextDate(ts: TransactionSequence) {
-  const lastTransaction = ts.transactions[0];
-  if (ts.interval >= 28 && ts.interval <= 33) {
-    return lastTransaction.date.add(1, "month");
-  }
-
-  if (ts.interval >= 360 && ts.interval <= 370) {
-    return lastTransaction.date.add(1, "year");
-  }
-
-  return lastTransaction.date.add(ts.interval, "day");
-}
-
-export function totalRecurring(ts: TransactionSequence) {
-  const lastTransaction = ts.transactions[0];
-  return _.sumBy(lastTransaction.postings, (t) => _.max([0, t.amount]));
-}
-
-export function sortTrantionSequence(transactionSequences: TransactionSequence[]) {
-  return _.chain(transactionSequences)
-    .sortBy((ts) => {
-      return Math.abs(nextDate(ts).diff(dayjs()));
-    })
-    .value();
-}
-
 const storageKey = "theme-preference";
 
 export function getColorPreference() {
@@ -940,4 +978,39 @@ export function setColorPreference(theme: string) {
 
 export function isZero(n: number) {
   return n < 0.0001 && n > -0.0001;
+}
+
+export function monthDays(month: string) {
+  const monthStart = dayjs(month, "YYYY-MM");
+  const monthEnd = monthStart.endOf("month");
+  const weekStart = monthStart.startOf("week");
+  const weekEnd = monthEnd.endOf("week");
+
+  const days: dayjs.Dayjs[] = [];
+  let d = weekStart;
+  while (d.isSameOrBefore(weekEnd)) {
+    days.push(d);
+    d = d.add(1, "day");
+  }
+  return { days, monthStart, monthEnd };
+}
+
+export function prefixMinutesSeconds(cronExpression: string) {
+  return cronExpression
+    .split("|")
+    .map((cron) => "0 0 " + cron)
+    .join("|");
+}
+
+export function svgTruncate(width: number) {
+  return function () {
+    const self = d3.select(this);
+    let textLength = self.node().getComputedTextLength(),
+      text = self.text();
+    while (textLength > width && text.length > 0) {
+      text = text.slice(0, -1);
+      self.text(text + "...");
+      textLength = self.node().getComputedTextLength();
+    }
+  };
 }

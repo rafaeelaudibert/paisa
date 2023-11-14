@@ -1,10 +1,14 @@
 package server
 
 import (
+	"strings"
+
+	"github.com/ananthakumaran/paisa/internal/accounting"
 	"github.com/ananthakumaran/paisa/internal/model/posting"
 	"github.com/ananthakumaran/paisa/internal/query"
 	"github.com/ananthakumaran/paisa/internal/server/assets"
 	"github.com/ananthakumaran/paisa/internal/service"
+	"github.com/ananthakumaran/paisa/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 	"github.com/shopspring/decimal"
@@ -26,11 +30,17 @@ type AccountGain struct {
 }
 
 func GetGain(db *gorm.DB) gin.H {
-	postings := query.Init(db).Like("Assets:%").NotAccountPrefix("Assets:Checking").All()
+	postings := query.Init(db).Like("Assets:%", "Income:CapitalGains:%").NotAccountPrefix("Assets:Checking").All()
 	postings = service.PopulateMarketPrice(db, postings)
-	byAccount := lo.GroupBy(postings, func(p posting.Posting) string { return p.Account })
+	byAccount := lo.GroupBy(postings, func(p posting.Posting) string {
+		if service.IsCapitalGains(p) {
+			return service.CapitalGainsSourceAccount(p.Account)
+		}
+		return p.Account
+	})
 	var gains []Gain
-	for account, ps := range byAccount {
+	for _, account := range utils.SortedKeys(byAccount) {
+		ps := byAccount[account]
 		gains = append(gains, Gain{Account: account, XIRR: service.XIRR(db, ps), Networth: computeNetworth(db, ps), Postings: ps})
 	}
 
@@ -38,9 +48,10 @@ func GetGain(db *gorm.DB) gin.H {
 }
 
 func GetAccountGain(db *gorm.DB, account string) gin.H {
-	postings := query.Init(db).AccountPrefix(account).All()
+	capitalGainsAccount := strings.Replace(account, "Assets", "Income:CapitalGains", 1)
+	postings := query.Init(db).AccountPrefix(account, capitalGainsAccount).All()
 	postings = service.PopulateMarketPrice(db, postings)
-	gain := AccountGain{Account: account, XIRR: service.XIRR(db, postings), NetworthTimeline: computeNetworthTimeline(db, postings), Postings: postings}
+	gain := AccountGain{Account: account, XIRR: service.XIRR(db, postings), NetworthTimeline: computeNetworthTimeline(db, postings, accounting.IsLeafAccount(db, account)), Postings: postings}
 
 	commodities := lo.Uniq(lo.Map(postings, func(p posting.Posting, _ int) string { return p.Commodity }))
 	var portfolio_groups PortfolioAllocationGroups

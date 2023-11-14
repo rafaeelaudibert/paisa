@@ -1,8 +1,8 @@
-import dayjs from "dayjs";
 import _ from "lodash";
 import Clusturize from "clusterize.js";
-import { formatCurrency, formatFloat, postingUrl, type Posting } from "./utils";
-import { iconify } from "./icon";
+import { formatCurrency, formatFloat, postingUrl, type Posting, firstName, now } from "./utils";
+import { iconText } from "./icon";
+import { accountColorStyle } from "./colors";
 
 export function renderPostings(postings: Posting[]) {
   const rows = _.map(postings, (p) => {
@@ -15,10 +15,10 @@ export function renderPostings(postings: Posting[]) {
       changeClass = "",
       price = "",
       units = "";
-    if (p.commodity !== "INR") {
+    if (p.commodity !== USER_CONFIG.default_currency) {
       units = formatFloat(p.quantity, 4);
       price = formatCurrency(Math.abs(p.amount / p.quantity), 4);
-      const days = dayjs().diff(p.date, "days");
+      const days = now().diff(p.date, "days");
       if (p.quantity > 0 && days > 0) {
         market = formatCurrency(p.market_amount);
         const changeAmount = p.market_amount - p.amount;
@@ -47,10 +47,14 @@ export function renderPostings(postings: Posting[]) {
     }
 
     const markup = `
-<tr class="${p.date.month() % 2 == 0 ? "has-background-white-ter" : ""}">
-       <td>${date}</td>
-       <td>${postingStatus}<a class="secondary-link" href=${postingUrl(p)}>${p.payee}</a></td>
-       <td>${iconify(p.account)}</td>
+<tr>
+       <td class='whitespace-nowrap'>${date}</td>
+       <td class='is-size-7' style='vertical-align: middle'>${postingStatus}<a class="secondary-link" href=${postingUrl(
+         p
+       )}>${p.payee}</a></td>
+       <td class='custom-icon'><span style='${accountColorStyle(firstName(p.account))}'>${iconText(
+         p.account
+       )}</span> ${p.account}</td>
        <td class='has-text-right'>${purchase}</td>
        <td class='has-text-right'>${units}</td>
        <td class='has-text-right'>${price}</td>

@@ -34,7 +34,7 @@
   <div class="container is-fluid">
     <div class="columns">
       <div class="column is-12">
-        <div class="box">
+        <div class="box overflow-x-auto">
           <table class="table is-narrow is-fullwidth is-hoverable">
             <thead>
               <tr>
@@ -48,14 +48,15 @@
                 <th class="has-text-right">Absolute Return</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="has-text-grey-dark">
               {#each Object.values(breakdowns) as b}
                 {@const indent = _.repeat("&emsp;&emsp;", depth(b.group) - 1)}
                 {@const gain = b.gainAmount}
                 {@const changeClass = calculateChangeClass(gain)}
                 <tr>
-                  <td style="max-width: 200px; overflow: hidden;"
-                    >{@html indent}<span class="has-text-grey">{iconText(b.group)}</span>
+                  <td class="whitespace-nowrap" style="max-width: 200px; overflow: hidden;"
+                    >{@html indent}<span class="has-text-grey custom-icon">{iconText(b.group)}</span
+                    >
                     <a href="/assets/gain/{b.group}">{lastName(b.group)}</a></td
                   >
                   <td class="has-text-right"

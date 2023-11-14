@@ -1,38 +1,35 @@
 <script lang="ts">
-  import * as expense from "$lib/expense/monthly";
   import * as cashFlow from "$lib/cash_flow";
+  import COLORS from "$lib/colors";
+  import LastNMonths from "$lib/components/LastNMonths.svelte";
+  import TransactionCard from "$lib/components/TransactionCard.svelte";
+  import * as expense from "$lib/expense/monthly";
+  import { enrichTrantionSequence, sortTrantionSequence } from "$lib/transaction_sequence";
   import {
     ajax,
-    sortTrantionSequence,
-    type CashFlow,
-    type Posting,
-    type TransactionSequence,
-    nextDate,
-    totalRecurring,
-    formatCurrencyCrude,
-    intervalText,
-    type Networth,
     formatCurrency,
     formatFloat,
+    type Budget,
+    type CashFlow,
+    type Networth,
+    type Posting,
     type Transaction,
-    type Budget
+    type TransactionSequence,
+    now
   } from "$lib/utils";
   import _ from "lodash";
   import { onMount } from "svelte";
-  import COLORS from "$lib/colors";
-  import dayjs from "dayjs";
-  import LastNMonths from "$lib/components/LastNMonths.svelte";
-  import TransactionCard from "$lib/components/TransactionCard.svelte";
 
-  import { MasonryGrid } from "@egjs/svelte-grid";
   import BudgetCard from "$lib/components/BudgetCard.svelte";
   import LevelItem from "$lib/components/LevelItem.svelte";
   import ZeroState from "$lib/components/ZeroState.svelte";
+  import { MasonryGrid } from "@egjs/svelte-grid";
   import { refresh } from "../store";
+  import UpcomingCard from "$lib/components/UpcomingCard.svelte";
 
   let UntypedMasonryGrid = MasonryGrid as any;
 
-  let month = dayjs().format("YYYY-MM");
+  let month = now().format("YYYY-MM");
   let transactionSequences: TransactionSequence[] = [];
   let cashFlows: CashFlow[] = [];
   let expenses: { [key: string]: Posting[] } = {};
@@ -45,8 +42,6 @@
   let currentBudget: Budget;
   let selectedExpenses: Posting[] = [];
   let isEmpty = false;
-
-  const now = dayjs();
 
   $: if (renderer) {
     selectedExpenses = expenses[month] || [];
@@ -84,7 +79,10 @@
       rotate: false,
       balance: _.last(cashFlows)?.balance || 0
     })(cashFlows);
-    transactionSequences = _.take(sortTrantionSequence(transactionSequences), 16);
+    transactionSequences = _.take(
+      sortTrantionSequence(enrichTrantionSequence(transactionSequences)),
+      16
+    );
   });
 </script>
 
@@ -101,7 +99,8 @@
               <p class="is-size-4">I want to get started</p>
               <ol class="ml-5 mt-2 mb-4">
                 <li>
-                  Go to <a href="/more/config">config</a> page and set your default currency and locale.
+                  Go to <a href="/more/config">configuration</a> page and set your default currency and
+                  locale.
                 </li>
                 <li>
                   Go to <a href="/ledger/editor">editor</a> page and start adding transactions to your
@@ -120,7 +119,8 @@
                   > page and select all the content and delete them.
                 </li>
                 <li>
-                  Go to <a href="/more/config">config</a> page and click the reset to defaults button.
+                  Go to <a href="/more/config">configuration</a> page and click the reset to defaults
+                  button.
                 </li>
               </ol>
 
@@ -223,9 +223,8 @@
             <p class="subtitle is-flex is-justify-content-space-between is-align-items-end">
               <span
                 ><a class="secondary-link" href="/expense/monthly">Expenses</a>
-                <span
-                  class="is-size-5 has-text-weight-bold px-2 has-text-white"
-                  style="background-color: {COLORS.lossText};">{formatCurrency(totalExpense)}</span
+                <span class="is-size-5 has-text-weight-bold px-2" style="color: {COLORS.expenses}"
+                  >{formatCurrency(totalExpense)}</span
                 ></span
               >
               <LastNMonths n={3} bind:value={month} />
@@ -248,35 +247,11 @@
                   </p>
                   <div class="content box">
                     <div
-                      class="is-flex is-justify-content-flex-start is-flex-wrap-wrap"
-                      style="overflow: hidden; max-height: 190px"
+                      class="grid grid-rows-1 overflow-hidden"
+                      style="grid-auto-rows: 0px; grid-template-columns: repeat(auto-fit, minmax(130px, 150px));"
                     >
-                      {#each transactionSequences as ts}
-                        {@const n = nextDate(ts)}
-                        <div class="has-text-centered mb-3 mr-3 max-w-[200px]">
-                          <div class="is-size-7 truncate">{ts.key.tagRecurring}</div>
-                          <div class="my-1">
-                            <span class="tag is-light">{intervalText(ts)}</span>
-                          </div>
-                          <div class="has-text-grey is-size-7">
-                            <span class="icon has-text-grey-light">
-                              <i class="fas fa-calendar" />
-                            </span>
-                            {n.format("DD MMM YYYY")}
-                          </div>
-                          <div
-                            class="m-3 du-radial-progress is-size-7"
-                            style="--value: {n.isBefore(now)
-                              ? '0'
-                              : (n.diff(now, 'day') / ts.interval) *
-                                100}; --thickness: 3px; --size: 100px; color: {n.isBefore(now)
-                              ? COLORS.danger
-                              : COLORS.success};"
-                          >
-                            <span>{formatCurrencyCrude(totalRecurring(ts))}</span>
-                            <span>due {n.fromNow()}</span>
-                          </div>
-                        </div>
+                      {#each transactionSequences as ts (ts)}
+                        <UpcomingCard transactionSequece={ts} />
                       {/each}
                     </div>
                   </div>

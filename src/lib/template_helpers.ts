@@ -4,7 +4,7 @@ import { get } from "svelte/store";
 import { accountTfIdf } from "../store";
 import similarity from "compute-cosine-similarity";
 
-const STOP_WORDS = ["fof", "growth", "direct", "plan", "the"];
+const STOP_WORDS = ["", "fof", "growth", "direct", "plan", "the"];
 
 function tokenize(s: string) {
   return _.mapValues(
@@ -17,6 +17,20 @@ function tokenize(s: string) {
     ),
     (v) => v.length
   );
+}
+
+function nextChar(key: string): string {
+  if (key === "Z") {
+    return "AA";
+  } else {
+    const last = key.slice(-1);
+    const butlast = key.slice(0, -1);
+    if (last === "Z") {
+      return nextChar(butlast) + "A";
+    } else {
+      return butlast + String.fromCharCode(last.charCodeAt(0) + 1);
+    }
+  }
 }
 
 function tfidf(query: string) {
@@ -90,6 +104,9 @@ export default {
   lte: (a: string | number, b: string | number) => parseAmount(a) <= parseAmount(b),
   lt: (a: string | number, b: string | number) => parseAmount(a) < parseAmount(b),
   negate: (value: string) => parseAmount(value) * -1,
+  round(str: string, options: any) {
+    return _.round(parseAmount(str), options.hash.precision || 0);
+  },
   and(...args: any[]) {
     return Array.prototype.every.call(Array.prototype.slice.call(args, 0, -1), Boolean);
   },
@@ -152,6 +169,21 @@ export default {
     }
     return str.replaceAll(search, replace);
   },
+  textRange(fromColumn: string, toColumn: string, options: any) {
+    const row: Record<string, string> = options.data.root.ROW;
+    const cells = [];
+    let i = 0;
+    let current = fromColumn;
+    while (i < 1000) {
+      cells.push(row[current]);
+      if (current === toColumn) {
+        break;
+      }
+      current = nextChar(current);
+      i++;
+    }
+    return cells.join(options.hash.separator || " ");
+  },
   regexpTest(str: string, regexp: string) {
     if (!_.isString(str)) {
       return;
@@ -173,7 +205,7 @@ export default {
   },
   findAbove(column: string, options: any) {
     const regexp = new RegExp(options.hash.regexp || ".+");
-    let i: number = options.data.root.ROW.index;
+    let i: number = options.data.root.ROW.index - 1;
     while (i >= 0) {
       const row = options.data.root.SHEET[i];
       const cell = row[column] || "";
@@ -189,13 +221,10 @@ export default {
     return null;
   },
   acronym(str: string) {
-    return _.chain(str.split(" "))
+    return _.chain(str.replaceAll(/[^a-zA-Z ]/g, "").split(" "))
       .filter((s) => !_.includes(STOP_WORDS, s.toLowerCase()))
       .map((s) => {
-        if (s.match(/^[0-9]+$/)) {
-          return "";
-        }
-        return s[0];
+        return s[0].toUpperCase();
       })
       .value()
       .join("");

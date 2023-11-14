@@ -30,12 +30,23 @@ dayjs.extend(relativeTime, {
     { l: "yy", d: "year" }
   ]
 });
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone"; // dependent on utc plugin
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+import * as pdfjs from "pdfjs-dist";
+import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.js?url";
+
+if (pdfjs.GlobalWorkerOptions) {
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
+}
 
 import Handlebars from "handlebars";
 import helpers from "$lib/template_helpers";
 import * as toast from "bulma-toast";
 import _ from "lodash";
-import { ajax } from "$lib/utils";
+import { ajax, setNow } from "$lib/utils";
 
 import "@formatjs/intl-numberformat/polyfill";
 import "@formatjs/intl-numberformat/locale-data/en";
@@ -60,7 +71,10 @@ toast.setDefaults({
 });
 
 export const load = (async () => {
-  const { config } = await ajax("/api/config");
+  const { config, now } = await ajax("/api/config");
+  if (now) {
+    setNow(now);
+  }
   globalThis.USER_CONFIG = config;
   return {};
 }) satisfies LayoutLoad;
