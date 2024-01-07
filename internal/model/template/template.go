@@ -36,20 +36,22 @@ func All() []Template {
 		templates = append(templates, template)
 	}
 
-	dirEntries, err := BuiltinTemplates.ReadDir("templates")
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, f := range dirEntries {
-		name := f.Name()
-		content, err := BuiltinTemplates.ReadFile(fmt.Sprintf("templates/%s", name))
+	if config.GetConfig().DisplayBuiltinTemplates {
+		dirEntries, err := BuiltinTemplates.ReadDir("templates")
 		if err != nil {
 			log.Fatal(err)
 		}
+		for _, f := range dirEntries {
+			name := f.Name()
+			content, err := BuiltinTemplates.ReadFile(fmt.Sprintf("templates/%s", name))
+			if err != nil {
+				log.Fatal(err)
+			}
 
-		name = strings.TrimSuffix(name, filepath.Ext(name))
-		template := Template{ID: buildID(name, Builtin), Name: name, Content: string(content), TemplateType: Builtin}
-		templates = append(templates, template)
+			name = strings.TrimSuffix(name, filepath.Ext(name))
+			template := Template{ID: buildID(name, Builtin), Name: name, Content: string(content), TemplateType: Builtin}
+			templates = append(templates, template)
+		}
 	}
 
 	return templates

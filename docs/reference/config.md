@@ -179,6 +179,10 @@ commodities:
     harvest: 1095
     tax_category: equity65
 
+## Display builtin templates
+# OPTION, DEFAULT: FALSE
+display_builtin_templates: true
+
 ## Import Templates
 # OPTIONAL, DEFAULT: []
 import_templates:

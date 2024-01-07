@@ -13,6 +13,7 @@ interface UserConfig {
   display_precision: number;
   db_path: string;
   financial_year_starting_month: number;
+  display_builtin_templates: boolean;
   accounts: {
     name: string;
     icon: string;

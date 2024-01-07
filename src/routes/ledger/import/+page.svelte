@@ -184,13 +184,17 @@
               >
                 <div slot="selection" let:selection>
                   {selection.name}
-                  <span class="tag is-small is-link invertable is-light"
-                    >{selection.template_type}</span
-                  >
+                  {#if globalThis.USER_CONFIG.display_builtin_templates}
+                    <span class="tag is-small is-link invertable is-light">
+                      {selection.template_type}
+                    </span>
+                  {/if}
                 </div>
                 <div slot="item" let:item>
                   <span class="name">{item.name}</span>
-                  <span class="tag is-small is-link invertable is-light">{item.template_type}</span>
+                  {#if globalThis.USER_CONFIG.display_builtin_templates}
+                    <span class="tag is-small is-link invertable is-light">{item.template_type}</span>
+                  {/if}
                 </div>
               </Select>
             </p>
