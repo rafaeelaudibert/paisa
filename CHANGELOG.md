@@ -1,5 +1,43 @@
 # CHANGELOG
 
+### 0.6.2 (2023-12-23)
+
+* New logo
+* Allow goals to be reordered
+* Show goals on the dashboard page
+* Bug fixes
+
+### 0.6.1 (2023-12-16)
+
+* Add new price provider: [Alpha Vantage](https://paisa.fyi/reference/commodities/#alpha-vantage)
+* Make first day of the week configurable
+* Support ledger strict mode
+* Add user login support, go to `User Accounts` section in configuration page to enable it
+* Show notes associated with a transaction/posting
+* Bug fixes
+
+### 0.6.0 (2023-12-09)
+
+* Add individual account balance on goals page
+* Add [keyboard shortcuts](https://paisa.fyi/reference/editor/) to format/save file on editor page
+* Add ability to search posting/transaction by note
+* Add option to reverse the order of generated transactions on import page
+* Add option to clear price cache
+* Bug fixes
+
+### 0.5.9 (2023-11-26)
+
+* Improve postings page
+* Add income statement page (Cash Flow > Income Statement)
+* Bug fixes
+
+### 0.5.8 (2023-11-18)
+
+* Add ability to specify rate, target date or monthly contribution to
+  [savings goal](https://paisa.fyi/reference/goals/savings/)
+* Improve price page
+* Bug fixes
+
 ### 0.5.7 (2023-11-11)
 
 * Add [goals](https://paisa.fyi/reference/goals)

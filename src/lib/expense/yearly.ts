@@ -1,5 +1,4 @@
 import * as d3 from "d3";
-import legend from "d3-svg-legend";
 import chroma from "chroma-js";
 import _ from "lodash";
 import {
@@ -14,7 +13,8 @@ import {
   financialYear,
   forEachFinancialYear,
   formatCurrencyCrudeWithPrecision,
-  now
+  now,
+  type Legend
 } from "$lib/utils";
 import COLORS, { generateColorScheme } from "$lib/colors";
 import type { Writable } from "svelte/store";
@@ -156,13 +156,13 @@ export function renderYearlyExpensesTimeline(
   yearStore: Writable<string>
 ) {
   if (_.isEmpty(postings)) {
-    return { z: null };
+    return { z: null, legends: [] };
   }
 
   const id = "#d3-yearly-expense-timeline";
   const MAX_BAR_WIDTH = 40;
   const svg = d3.select(id),
-    margin = { top: 40, right: 30, bottom: 60, left: 40 },
+    margin = { top: 15, right: 30, bottom: 60, left: 40 },
     width =
       document.getElementById(id.substring(1)).parentElement.clientWidth -
       margin.left -
@@ -333,33 +333,25 @@ export function renderYearlyExpensesTimeline(
   let selectedGroups = groups;
   render(selectedGroups);
 
-  svg.append("g").attr("class", "legendOrdinal").attr("transform", "translate(40,0)");
+  const legends = groups.map(
+    (group) =>
+      ({
+        label: iconify(group, { group: "Expenses" }),
+        color: z(group),
+        shape: "square",
+        onClick: () => {
+          if (selectedGroups.length == 1 && selectedGroups[0] == group) {
+            selectedGroups = groups;
+          } else {
+            selectedGroups = [group];
+          }
 
-  const legendOrdinal = legend
-    .legendColor()
-    .shape("rect")
-    .orient("horizontal")
-    .shapePadding(100)
-    .labels(({ i, generatedLabels }: { i: number; generatedLabels: string[] }) => {
-      return iconify(generatedLabels[i], { group: "Expenses" });
-    })
-    .on("cellclick", function () {
-      const group = this.__data__;
-      if (selectedGroups.length == 1 && selectedGroups[0] == group) {
-        selectedGroups = groups;
-        svg.selectAll(".legendOrdinal .cell .label").classed("selected", false);
-      } else {
-        selectedGroups = [group];
-        svg.selectAll(".legendOrdinal .cell .label").classed("selected", false);
-        d3.select(this).selectAll(".label").classed("selected", true);
-      }
+          render(selectedGroups);
+        }
+      }) as Legend
+  );
 
-      render(selectedGroups);
-    })
-    .scale(z);
-
-  svg.select(".legendOrdinal").call(legendOrdinal as any);
-  return { z: z };
+  return { z, legends };
 }
 
 export function renderCurrentExpensesBreakdown(z: d3.ScaleOrdinal<string, string, never>) {

@@ -2,10 +2,92 @@ import type { Arima } from "arima/async";
 import * as d3 from "d3";
 import { Delaunay } from "d3";
 import _, { first, isEmpty, last, takeRight } from "lodash";
-import tippy, { type Placement } from "tippy.js";
+import tippy from "tippy.js";
 import COLORS from "./colors";
-import type { Forecast, Point } from "./utils";
-import { formatCurrency, formatCurrencyCrude, formatFloat, rem, tooltip } from "./utils";
+import type { Forecast, Point, Posting } from "./utils";
+import {
+  formatCurrency,
+  formatCurrencyCrude,
+  formatFloat,
+  groupSumBy,
+  isMobile,
+  now,
+  rem,
+  skipTicks,
+  sumPostings,
+  tooltip
+} from "./utils";
+import dayjs from "dayjs";
+import * as financial from "financial";
+import { iconify } from "./icon";
+
+const WHEN = financial.PaymentDueTime.Begin;
+
+export function solvePMTOrNper(
+  fv: number,
+  rate: number,
+  pv: number,
+  pmt: number,
+  targetDate: string
+) {
+  const empty = { pmt: 0, targetDate: "" };
+
+  rate = rate / (100 * 12);
+  const today = now().startOf("month");
+
+  let targetDateObject = dayjs(targetDate, "YYYY-MM-DD", true);
+  if (targetDateObject.isValid()) {
+    const nper = targetDateObject.diff(today, "months");
+    if (nper <= 0) {
+      return empty;
+    }
+    pmt = financial.pmt(rate, nper, pv, -fv, WHEN);
+    if (pmt <= 0) {
+      // target will be achieved without any monthly savings
+      return { pmt: 0.001, targetDate };
+    }
+  } else if (pmt > 0) {
+    const nper = financial.nper(rate, pmt, pv, -fv, WHEN);
+    targetDateObject = today.add(Math.ceil(nper), "months");
+    targetDate = targetDateObject.format("YYYY-MM-DD");
+  }
+
+  return { pmt, targetDate };
+}
+
+export function project(
+  fv: number,
+  rate: number,
+  targetDate: dayjs.Dayjs,
+  pmt: number,
+  pv: number
+): Forecast[] {
+  rate = rate / (100 * 12);
+  const today = now().startOf("month");
+
+  if (fv <= pv) {
+    return [];
+  }
+
+  if (targetDate.isSameOrBefore(today, "day")) {
+    return [];
+  }
+
+  const nper = targetDate.diff(today, "months");
+  if (nper <= 0) {
+    return [];
+  }
+
+  const points: Forecast[] = [];
+  let current = today.add(1, "month");
+  while (current.isSameOrBefore(targetDate, "day")) {
+    const value = financial.fv(rate, current.diff(today, "months"), -pmt, -pv, WHEN);
+    points.push({ date: current, value, error: 0 });
+    current = current.add(1, "month");
+  }
+
+  return points;
+}
 
 export function forecast(points: Point[], target: number, ARIMA: typeof Arima): Forecast[] {
   const configs = [
@@ -66,7 +148,7 @@ export function findBreakPoints(points: Point[], target: number): Point[] {
   let i = 1;
   while (i <= 4 && !isEmpty(points)) {
     const p = points.shift();
-    if (p.value > target * (i / 4)) {
+    if (p.value >= target * (i / 4)) {
       result.push(p);
       i++;
     }
@@ -165,18 +247,13 @@ export function renderProgress(
     .style("pointer-events", "none")
     .attr("fill", COLORS.tertiary)
     .attr("class", "axis x")
-    .attr("data-tippy-placement", (_d, i) => ["top-end", "top", "bottom", "top-start"][i])
-    .attr("data-tippy-content", (d, i) => {
-      return `
-<div class='has-text-centered'>${formatCurrencyCrude(d.value)} (${
-        (i + 1) * 25
-      }%)<br />${d.date.format("DD MMM YYYY")}</div>
-`;
-    })
     .attr("cx", (p) => x(p.date))
     .attr("cy", (p) => y(p.value));
 
-  const voronoiPoints = _.map(points.concat(predictions), (p) => [x(p.date), y(p.value)]);
+  const voronoiPoints: Delaunay.Point[] = _.map(points.concat(predictions), (p) => [
+    x(p.date),
+    y(p.value)
+  ]);
   const voronoi = Delaunay.from(voronoiPoints).voronoi([0, 0, width, height]);
   const hoverCircle = g.append("circle").attr("r", "3").attr("fill", "none");
   const t = tippy(hoverCircle.node(), { theme: "light", delay: 0, allowHTML: true });
@@ -215,27 +292,153 @@ export function renderProgress(
       hoverCircle.attr("fill", "none");
     });
 
-  const instances = tippy("circle[data-tippy-content]", {
-    onShow: (instance) => {
-      const content = instance.reference.getAttribute("data-tippy-content");
-      if (!_.isEmpty(content)) {
-        instance.setContent(content);
-        instance.setProps({
-          placement: instance.reference.getAttribute("data-tippy-placement") as Placement
-        });
-      } else {
-        return false;
-      }
-    },
-    hideOnClick: false,
-    allowHTML: true,
-    appendTo: element.parentElement
-  });
-
-  instances.forEach((i) => i.show());
-
   return () => {
     t.destroy();
-    instances.forEach((i) => i.destroy());
   };
+}
+
+export function renderInvestmentTimeline(postings: Posting[], element: Element, pmt: number) {
+  const timeFormat = "MMM YYYY";
+  const MAX_BAR_WIDTH = 40;
+  const svg = d3.select(element),
+    margin = { top: 10, right: 50, bottom: 50, left: 40 },
+    width = element.parentElement.clientWidth - margin.left - margin.right,
+    height = +svg.attr("height") - margin.top - margin.bottom,
+    g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  const groupKeys = _.chain(postings)
+    .map((p) => p.account)
+    .uniq()
+    .sort()
+    .value();
+
+  const defaultValues = _.zipObject(
+    groupKeys,
+    _.map(groupKeys, () => 0)
+  );
+
+  interface Point {
+    date: dayjs.Dayjs;
+    total: number;
+    month: string;
+    postings: Posting[];
+    [key: string]: number | string | dayjs.Dayjs | Posting[];
+  }
+  const points: Point[] = [];
+  const groupedPostings = _.groupBy(postings, (p) => p.date.format(timeFormat));
+  const months = isMobile() ? 12 : 24;
+  let start = now().startOf("month").subtract(months, "months");
+  while (start.isBefore(now())) {
+    const month = start.format(timeFormat);
+    if (!groupedPostings[month]) {
+      groupedPostings[month] = [];
+    }
+
+    const ps = groupedPostings[month];
+
+    const values = _.chain(ps)
+      .groupBy((p) => p.account)
+      .flatMap((postings, key) => [[key, _.sumBy(postings, (p) => p.amount)]])
+      .fromPairs()
+      .value();
+
+    const total = sumPostings(ps);
+
+    const point = _.merge(
+      {
+        month,
+        total,
+        date: dayjs(month, timeFormat),
+        postings: ps
+      },
+      defaultValues,
+      values
+    );
+
+    points.push(point);
+    start = start.add(1, "month");
+  }
+
+  const x = d3.scaleBand().range([0, width]).paddingInner(0.1).paddingOuter(0);
+  const y = d3.scaleLinear().range([height, 0]);
+
+  const sum = (p: Point) => p.total;
+  const max = d3.max(points, sum);
+  const min = d3.min([0, d3.min(points, sum)]);
+  x.domain(points.map((p) => p.month));
+  y.domain([min, max]);
+
+  g.append("g")
+    .attr("class", "axis x")
+    .attr("transform", "translate(0," + height + ")")
+    .call(
+      d3
+        .axisBottom(x)
+        .ticks(5)
+        .tickFormat(skipTicks(30, x, (d) => d.toString()))
+    )
+    .selectAll("text")
+    .attr("y", 10)
+    .attr("x", -8)
+    .attr("dy", ".35em")
+    .attr("transform", "rotate(-45)")
+    .style("text-anchor", "end");
+
+  g.append("g")
+    .attr("class", "axis y")
+    .call(d3.axisLeft(y).tickSize(-width).tickFormat(formatCurrencyCrude));
+
+  if (pmt > 0) {
+    g.append("line")
+      .attr("fill", "none")
+      .attr("stroke", COLORS.secondary)
+      .attr("x1", 0)
+      .attr("x2", width)
+      .attr("y1", y(pmt))
+      .attr("y2", y(pmt))
+      .attr("stroke-width", "2px")
+      .attr("stroke-linecap", "round")
+      .attr("stroke-dasharray", "4 6");
+
+    g.append("text")
+      .style("font-size", "0.714rem")
+      .attr("dx", "3px")
+      .attr("dy", "0.3em")
+      .attr("x", width)
+      .attr("y", y(pmt))
+      .attr("fill", COLORS.secondary)
+      .text(formatCurrencyCrude(pmt));
+  }
+
+  g.append("g")
+    .selectAll("rect")
+    .data(points)
+    .enter()
+    .append("rect")
+    .attr("stroke", (p) => (p.total <= 0 ? COLORS.lossText : COLORS.gainText))
+    .attr("fill", (p) => (p.total <= 0 ? COLORS.lossText : COLORS.gainText))
+    .attr("fill-opacity", 0.6)
+    .attr("data-tippy-content", (p) => {
+      const group = groupSumBy(p.postings, (p) => p.account);
+      return tooltip(
+        _.sortBy(
+          _.map(group, (amount, account) => [
+            iconify(account),
+            [formatCurrency(amount), "has-text-weight-bold has-text-right"]
+          ]),
+          (r) => r[0]
+        ),
+        { total: formatCurrency(p.total) }
+      );
+    })
+    .attr("x", function (p) {
+      return x(p.month) + (x.bandwidth() - Math.min(x.bandwidth(), MAX_BAR_WIDTH)) / 2;
+    })
+    .attr("y", function (p) {
+      return p.total <= 0 ? y(0) : y(p.total);
+    })
+    .attr("height", function (p) {
+      return p.total <= 0 ? y(p.total) - y(0) : y(0) - y(p.total);
+    })
+    .attr("width", Math.min(x.bandwidth(), MAX_BAR_WIDTH));
 }

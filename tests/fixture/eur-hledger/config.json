@@ -13,6 +13,8 @@
     "display_precision": 0,
     "locale": "es-EU",
     "financial_year_starting_month": 4,
+    "week_starting_day": 0,
+    "strict": "no",
     "budget": {
       "rollover": "yes"
     },
@@ -24,12 +26,13 @@
     "goals": {
       "retirement": [],
       "savings": []
-    }
+    },
+    "user_accounts": []
   },
   "now": "2022-02-07T00:00:00Z",
   "schema": {
     "$id": "https://paisa.fyi/schema.json",
-    "$schema": "https://json-schema.org/draft-07/schema",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "description": "Paisa configuration",
     "properties": {
@@ -163,7 +166,8 @@
                     "in-mfapi",
                     "com-yahoo",
                     "com-purifiedbytes-nps",
-                    "com-purifiedbytes-metal"
+                    "com-purifiedbytes-metal",
+                    "co-alphavantage"
                   ],
                   "type": "string"
                 }
@@ -272,6 +276,10 @@
                   "description": "Goal name",
                   "type": "string"
                 },
+                "priority": {
+                  "description": "Priority of the goal. Goals with higher priority will be shown first",
+                  "type": "integer"
+                },
                 "savings": {
                   "default": [
                     "Assets:Equity"
@@ -321,6 +329,11 @@
             ],
             "items": {
               "additionalProperties": false,
+              "dependentRequired": {
+                "target_date": [
+                  "rate"
+                ]
+              },
               "description": "Savings Goal configuration",
               "properties": {
                 "accounts": {
@@ -344,9 +357,38 @@
                   "description": "Goal name",
                   "type": "string"
                 },
+                "payment_per_period": {
+                  "description": "Expected monthly investment amount",
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "priority": {
+                  "description": "Priority of the goal. Goals with higher priority will be shown first",
+                  "type": "integer"
+                },
+                "rate": {
+                  "description": "The expected rate of return per year",
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "target": {
                   "description": "Savings Target",
                   "type": "number"
+                },
+                "target_date": {
+                  "description": "Savings Target date",
+                  "oneOf": [
+                    {
+                      "format": "date"
+                    },
+                    {
+                      "enum": [
+                        ""
+                      ],
+                      "type": "string"
+                    }
+                  ],
+                  "type": "string"
                 }
               },
               "required": [
@@ -476,6 +518,61 @@
           "code"
         ],
         "type": "array"
+      },
+      "strict": {
+        "description": "When strict mode is enabled, all the accounts and commodities should be defined before use.",
+        "enum": [
+          "",
+          "yes",
+          "no"
+        ],
+        "type": "string",
+        "ui:widget": "boolean"
+      },
+      "user_accounts": {
+        "default": [
+          {
+            "password": "",
+            "username": "john.doe"
+          }
+        ],
+        "description": "List of user accounts",
+        "items": {
+          "additionalProperties": false,
+          "description": "User account configuration",
+          "properties": {
+            "password": {
+              "description": "Password for the account",
+              "pattern": "^sha256:[A-Fa-f0-9]{64}$",
+              "type": "string",
+              "ui:order": 2,
+              "ui:widget": "password"
+            },
+            "username": {
+              "description": "Username for the account",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9.-_]+$",
+              "type": "string",
+              "ui:order": 1
+            }
+          },
+          "required": [
+            "username",
+            "password"
+          ],
+          "type": "object",
+          "ui:header": "username"
+        },
+        "itemsUniqueProperties": [
+          "username"
+        ],
+        "type": "array"
+      },
+      "week_starting_day": {
+        "description": "First day of the week. 0 represents Sunday, 1 represents Monday and so on.",
+        "maximum": 6,
+        "minimum": 0,
+        "type": "integer"
       }
     },
     "required": [

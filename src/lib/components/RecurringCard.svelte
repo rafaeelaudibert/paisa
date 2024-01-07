@@ -60,7 +60,7 @@
           {schedule.scheduled.format("DD MMM YYYY")}
         </div>
       </div>
-      <hr class="m-1" />
+      <hr class="my-1" />
       <div use:chart={{ ts: ts, next: schedule.scheduled }}>
         <svg height={HEIGHT} width="100%" />
       </div>
@@ -83,7 +83,7 @@
         <i class="fa-solid has-text-grey-light fa-angle-left" />
       </div>
       {#each _.reverse(_.take(ts.transactions, 20)) as t}
-        <div class="box px-5 py-3 my-0 has-text-grey">
+        <div class="box px-5 py-3 my-0 has-text-grey" style="box-shadow: none;">
           <Transaction {t} compact={true} />
         </div>
       {/each}

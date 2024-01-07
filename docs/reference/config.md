@@ -65,41 +65,84 @@ locale: en-IN
 # OPTIONAL, DEFAULT: 4
 financial_year_starting_month: 4
 
+# First day of the week. This can be set to 1 to follow Monday to
+# Sunday. 0 represents Sunday, 1 represents Monday and so on.
+#
+# OPTIONAL, DEFAULT: 0
+week_starting_day: 0
+
+# When strict mode is enabled, all the accounts and commodities should
+# be defined before use. This is same as --pedantic flag in ledger and
+# --strict flag in hledger. Doesn't apply to beancount.
+#
+# OPTIONAL, ENUM: yes, no DEFAULT: no
+strict: "no"
+
 ## Budget
 budget:
   # Rollover unspent money to next month
   # OPTIONAL, ENUM: yes, no DEFAULT: yes
   rollover: "yes"
 
-## Retirement
-retirement:
-  # Safe Withdrawal Rate
-  # OPTIONAL, DEFAULT: 4
-  swr: 2
-  # List of expense accounts
-  # OPTIONAL, DEFAULT: Expenses:*
-  expenses:
-    - Expenses:Clothing
-    - Expenses:Education
-    - Expenses:Entertainment
-    - Expenses:Food
-    - Expenses:Gift
-    - Expenses:Insurance
-    - Expenses:Misc
-    - Expenses:Restaurant
-    - Expenses:Shopping
-    - Expenses:Utilities
-  # List of accounts where you keep retirement savings
-  # OPTIONAL, DEFAULT: Assets:*
+## Goals
+goals:
+  # Retirement goals
+  retirement:
+      # Goal name
+      # REQUIRED
+    - name: Retirement
+      # Goal icon
+      # REQUIRED
+      icon: mdi:palm-tree
+      # Safe Withdrawal Rate
+      # OPTIONAL, DEFAULT: 4
+      swr: 2
+      # List of expense accounts
+      # OPTIONAL, DEFAULT: Expenses:*
+      expenses:
+        - Expenses:Clothing
+        - Expenses:Education
+        - Expenses:Entertainment
+        - Expenses:Food
+        - Expenses:Gift
+        - Expenses:Insurance
+        - Expenses:Misc
+        - Expenses:Restaurant
+        - Expenses:Shopping
+        - Expenses:Utilities
+      # List of accounts where you keep retirement savings
+      # OPTIONAL, DEFAULT: Assets:*
+      savings:
+        - Assets:Equity:*
+        - Assets:Debt:*
+      # By default, average of last 3 year expenses will be used to
+      # calculate your yearly expenses. This can be overridden by setting
+      # this configuration to positive value
+      # OPTIONAL, DEFAULT: 0
+      yearly_expenses: 0
   savings:
-    - Assets:Equity:*
-    - Assets:Debt:*
-  # By default, average of last 3 year expenses will be used to
-  # calculate your yearly expenses. This can be overridden by setting
-  # this configuration to positive value
-  # OPTIONAL, DEFAULT: 0
-  yearly_expenses: 0
-
+      # Goal name
+      # REQUIRED
+    - name: House
+      # Goal icon
+      # REQUIRED
+      icon: fluent-emoji-high-contrast:house-with-garden
+      # Goal target amount
+      # REQUIRED
+      target: 100000
+      # Goal target date
+      # OPTIONAL (either target_date or payment_per_period can be specified)
+      target_date: "2030-01-01"
+      # Expected rate of returns
+      # OPTIONAL
+      payment_per_period: 0
+      # Expected rate of returns
+      # OPTIONAL, REQUIRED if target_date or payment_per_period is set
+      rate: 5
+      # List of accounts where you keep the goal's savings
+      # REQUIRED
+      accounts:
+        - Assets:Equity:**
 ## Schedule AL
 # OPTIONAL, DEFAULT: []
 schedule_al:
@@ -157,7 +200,7 @@ commodities:
     # Required, ENUM: mutualfund, stock, nps, unknown
     type: mutualfund
     price:
-      # Required, ENUM: in-mfapi, com-yahoo, com-purifiedbytes-nps
+      # Required, ENUM: in-mfapi, com-yahoo, com-purifiedbytes-nps, co-alphavantage
       provider: in-mfapi
       # differs based on provider
       code: 145552
@@ -208,4 +251,15 @@ accounts:
     # Required, name of the account
     icon: arcticons:idfc-first-bank
     # Optional, use the UI to select the icon.
+
+## List of user accounts.
+# If the list is empty, then no authentication will be performed
+#
+# OPTIONAL, DEFAULT: []
+user_accounts:
+  - username: john.doe
+    # Required
+    password: sha256:a96dc73edd639b1c711b006e714bd2ff5bf5c1aecd77d0b3c3370403c66d58e5
+    # Required, password hashed twice with sha256, then prefixed sha256:
+    # echo -n 'secret' | sha256sum | head -c 64 | sha256sum | head -c 64
 ```
