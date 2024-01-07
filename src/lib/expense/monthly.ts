@@ -389,7 +389,7 @@ export function renderMonthlyExpensesTimeline(
     .legendColor()
     .shape("rect")
     .orient("horizontal")
-    .shapePadding(100)
+    .shapePadding(75)
     .labels(({ i, generatedLabels }: { i: number; generatedLabels: string[] }) => {
       return iconify(generatedLabels[i], { group: "Expenses" });
     })
