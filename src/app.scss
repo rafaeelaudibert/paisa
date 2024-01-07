@@ -12,7 +12,6 @@ $box-shadow: none;
 $box-padding: 1.25rem 0;
 
 $card-shadow: none;
-$card-header-shadow: 0 0.05em 0.1em rgba(10, 10, 10, 0.1);
 $danger-light: hsl(347, 90%, 96%);
 
 $switch-focus: none;
@@ -26,7 +25,7 @@ $menu-item-hover-background-color: $link-light;
 $menu-item-active-color: $link-dark;
 $menu-item-active-background-color: $link-light;
 
-$editor-full-height: calc(100vh - 21px - 57.75px - 10.5px);
+$editor-full-height: calc(100vh - 45.5px - 7px - 15.75px - 21px - 57.75px - 10.5px - 10.5px);
 
 @import "bulma/bulma.sass";
 @import "bulma-switch/src/sass/index.sass";
@@ -128,6 +127,15 @@ body {
   background: $white-bis;
 }
 
+.is-primary-color {
+  color: #b388ff;
+  font-weight: bold;
+
+  &:hover {
+    color: #b388ff;
+  }
+}
+
 .secondary-link {
   color: $grey-dark;
   &:hover {
@@ -138,6 +146,21 @@ body {
 
 .tab-journal .table td {
   border: 1px solid rgba($grey-lightest, 0.5);
+}
+
+.table.is-light-border tbody {
+  td,
+  th {
+    border-bottom: 1px solid rgba($grey-lightest, 0.5);
+  }
+}
+
+.table tr.is-sub-header {
+  background-color: $white-ter;
+}
+
+.table.has-sticky-column tbody tr.is-sub-header th:first-child {
+  background-color: $white-ter;
 }
 
 code {
@@ -205,6 +228,10 @@ svg text {
   fill: $black-ter;
 }
 
+.svg-text-black-bis {
+  fill: $black-bis;
+}
+
 .svg-text-grey-darker {
   fill: $grey-darker;
 }
@@ -249,12 +276,20 @@ svg text {
   stroke: $grey-lighter;
 }
 
+.is-size-6-5 {
+  font-size: 0.85rem !important;
+}
+
 .axis {
   font-family: $family-sans-serif-icon;
 
   &.dark text {
     fill: $grey;
     font-size: 0.857rem;
+  }
+
+  &.is-large text {
+    font-size: 1.25rem;
   }
 
   &.link text {
@@ -310,29 +345,21 @@ svg text {
   fill: $black !important;
 }
 
-.legendOrdinal,
-.legendLine {
-  .label {
-    display: block;
-    font-size: 0.785rem;
-    text-transform: capitalize;
-    font-weight: normal;
-    color: $grey;
-    fill: $grey;
-
-    &.selected {
-      fill: $grey-darker;
-      font-weight: bold;
-    }
-  }
+.g-arrow.is-light path {
+  opacity: 1;
+  stroke: $grey-light !important;
+  fill: $grey-light !important;
 }
 
-#d3-investment-timeline .legendOrdinal .label,
-#d3-yearly-investment-timeline .legendOrdinal .label,
-#d3-income-timeline .legendOrdinal .label,
-#d3-repayment-timeline .legendOrdinal .label,
-#d3-breakdown .legendOrdinal .label {
-  font-size: 0.857rem;
+.legend-label {
+  text-transform: capitalize;
+  text-align: center;
+  line-height: 1rem;
+}
+
+.legend-box.selected {
+  background-color: $grey-lightest;
+  border-radius: $radius;
 }
 
 #d3-salary-timeline .x.axis > g.tick {
@@ -345,6 +372,10 @@ svg text {
 
 .box.is-selected {
   box-shadow: $shadow;
+}
+
+.box {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .node {
@@ -805,23 +836,6 @@ span.progress-percent.less-than-10 {
   background: $white-ter;
 }
 
-.circle-container {
-  margin: auto;
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  height: 48px;
-  width: 48px;
-
-  svg {
-    path {
-      fill: $black;
-    }
-  }
-}
-
 .transaction.bordered {
   border-bottom: 1px solid rgba($grey-lightest, 0.5);
   padding-bottom: 1px;
@@ -962,9 +976,19 @@ textarea:invalid {
     margin-left: calc(100% - 10px);
 
     .dropdown-content {
-      box-shadow:
-        0 8px 8px rgba(10, 10, 10, 0.1),
-        0 0 0 1px rgba(10, 10, 10, 0.1);
+      box-shadow: $shadow;
+    }
+  }
+
+  @include mobile {
+    .dropdown-menu {
+      position: static;
+      margin-left: 0;
+
+      .dropdown-content {
+        box-shadow: none !important;
+        background-color: transparent;
+      }
     }
   }
 }
@@ -972,4 +996,15 @@ textarea:invalid {
 .custom-icon,
 [data-tippy-root] {
   font-family: $family-sans-serif-icon;
+}
+
+.posting-row {
+  grid-template-columns: 6rem 20rem 16rem 8rem 10rem 8rem 6rem 6rem 6rem 6rem;
+  grid-auto-flow: column;
+  overflow-x: auto;
+  border-bottom: 1px solid rgba($grey-lightest, 0.5);
+}
+
+div.is-hoverable:hover {
+  background-color: $white-bis;
 }

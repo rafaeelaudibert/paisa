@@ -3,19 +3,18 @@
   import Actions from "$lib/components/Actions.svelte";
   import { month, year, dateMax, dateMin, dateRangeOption } from "../../store";
   import {
-    cashflowType,
     cashflowExpenseDepth,
     cashflowExpenseDepthAllowed,
     cashflowIncomeDepth,
-    cashflowIncomeDepthAllowed
+    cashflowIncomeDepthAllowed,
+    obscure
   } from "../../persisted_store";
   import _ from "lodash";
-  import { financialYear, forEachFinancialYear, helpUrl, now } from "$lib/utils";
+  import { financialYear, forEachFinancialYear, helpUrl, isMobile, now } from "$lib/utils";
   import { onMount } from "svelte";
   import { get } from "svelte/store";
   import DateRange from "./DateRange.svelte";
   import ThemeSwitcher from "./ThemeSwitcher.svelte";
-  import BoxedTabs from "./BoxedTabs.svelte";
   import MonthPicker from "./MonthPicker.svelte";
   import Logo from "./Logo.svelte";
   import InputRange from "./InputRange.svelte";
@@ -43,7 +42,6 @@
     hide?: boolean;
     dateRangeSelector?: boolean;
     monthPicker?: boolean;
-    cashflowTypePicker?: boolean;
     financialYearPicker?: boolean;
     maxDepthSelector?: boolean;
     recurringIcons?: boolean;
@@ -55,11 +53,11 @@
       label: "Cash Flow",
       href: "/cash_flow",
       children: [
+        { label: "Income Statement", href: "/income_statement", financialYearPicker: true },
         { label: "Monthly", href: "/monthly", dateRangeSelector: true },
         {
           label: "Yearly",
           href: "/yearly",
-          cashflowTypePicker: true,
           financialYearPicker: true,
           maxDepthSelector: true
         },
@@ -108,7 +106,7 @@
       href: "/ledger",
       children: [
         { label: "Import", href: "/import", help: "import" },
-        { label: "Editor", href: "/editor" },
+        { label: "Editor", href: "/editor", help: "editor" },
         { label: "Transactions", href: "/transaction", help: "bulk-edit" },
         { label: "Postings", href: "/posting" },
         { label: "Price", href: "/price" }
@@ -118,7 +116,7 @@
       label: "More",
       href: "/more",
       children: [
-        { label: "Configuration", href: "/config", tag: "alpha" },
+        { label: "Configuration", href: "/config", tag: "alpha", help: "config" },
         { label: "Goals", href: "/goals", help: "goals" },
         { label: "Doctor", href: "/doctor" },
         { label: "Logs", href: "/logs" }
@@ -153,29 +151,31 @@
   let selectedSubLink: Link = null;
   let selectedSubSubLink: Link = null;
 
-  $: if ($page.url.pathname) {
+  $: normalizedPath = $page.url.pathname?.replace(/(.+)\/$/, "");
+
+  $: if (normalizedPath) {
     selectedSubLink = null;
     selectedSubSubLink = null;
-    selectedLink = _.find(links, (l) => $page.url.pathname == l.href);
+    selectedLink = _.find(links, (l) => normalizedPath == l.href);
     if (!selectedLink) {
       selectedLink = _.find(
         links,
-        (l) => !_.isEmpty(l.children) && $page.url.pathname.startsWith(l.href)
+        (l) => !_.isEmpty(l.children) && normalizedPath.startsWith(l.href)
       );
 
       selectedSubLink = _.find(
         selectedLink.children,
-        (l) => $page.url.pathname == selectedLink.href + l.href
+        (l) => normalizedPath == selectedLink.href + l.href
       );
 
       if (!selectedSubLink) {
         selectedSubLink = _.find(selectedLink.children, (l) =>
-          $page.url.pathname.startsWith(selectedLink.href + l.href)
+          normalizedPath.startsWith(selectedLink.href + l.href)
         );
 
         if (!_.isEmpty(selectedSubLink.children)) {
           selectedSubSubLink = _.find(selectedSubLink.children, (l) =>
-            $page.url.pathname.startsWith(selectedLink.href + selectedSubLink.href + l.href)
+            normalizedPath.startsWith(selectedLink.href + selectedSubLink.href + l.href)
           );
         }
       }
@@ -187,9 +187,17 @@
   <div class="navbar-brand">
     <a
       href="/"
-      class:is-active={$page.url.pathname == "/"}
-      class="navbar-item is-size-4 has-text-weight-medium"><Logo size={20} /> Paisa</a
+      class:is-active={normalizedPath == "/"}
+      class="navbar-item is-size-4 has-text-weight-medium"
     >
+      {#if $obscure}
+        <span class="icon is-small is-size-5">
+          <i class="fas fa-user-secret" />
+        </span><span class="ml-2 is-primary-color">Paisa</span>
+      {:else}
+        <Logo size={22} /><span class="ml-1 is-primary-color">Paisa</span>
+      {/if}
+    </a>
     <a
       role="button"
       tabindex="-1"
@@ -211,35 +219,38 @@
       {#each links as link}
         {#if _.isEmpty(link.children)}
           {#if !link.hide}
-            <a
-              class="navbar-item"
-              href={link.href}
-              class:is-active={$page.url.pathname == link.href}>{link.label}</a
+            <a class="navbar-item" href={link.href} class:is-active={normalizedPath == link.href}
+              >{link.label}</a
             >
           {/if}
         {:else}
           <div class="navbar-item has-dropdown is-hoverable">
-            <a class="navbar-link" class:is-active={$page.url.pathname.startsWith(link.href)}
+            <a
+              class="navbar-link"
+              class:is-active={normalizedPath.startsWith(link.href)}
+              on:click|preventDefault={(e) =>
+                isMobile() && e.currentTarget.parentElement.classList.toggle("is-active")}
               >{link.label}</a
             >
-            <div class="navbar-dropdown is-boxed">
+            <div class="navbar-dropdown {!isMobile() && 'is-boxed'}">
               {#each link.children as sublink}
                 {@const href = link.href + sublink.href}
                 {#if _.isEmpty(sublink.children)}
-                  <a
-                    class="navbar-item"
-                    {href}
-                    class:is-active={$page.url.pathname.startsWith(href)}>{sublink.label}</a
+                  <a class="navbar-item" {href} class:is-active={normalizedPath.startsWith(href)}
+                    >{sublink.label}</a
                   >
                 {:else}
                   <div class="nested has-dropdown navbar-item">
                     <a
                       class="navbar-link is-arrowless is-flex is-justify-content-space-between is-active"
-                      class:is-active={$page.url.pathname.startsWith(href)}
+                      class:is-active={normalizedPath.startsWith(href)}
                     >
                       <span>{sublink.label}</span>
                       <span class="icon is-small">
-                        <i class="fas fa-angle-right" aria-hidden="true"></i>
+                        <i
+                          class="fas {isMobile() ? 'fa-angle-down' : 'fa-angle-right'}"
+                          aria-hidden="true"
+                        ></i>
                       </span>
                     </a>
 
@@ -249,7 +260,7 @@
                           <a
                             href={href + subsublink.href}
                             class="navbar-item"
-                            class:is-active={$page.url.pathname == href + subsublink.href}
+                            class:is-active={normalizedPath == href + subsublink.href}
                             >{subsublink.label}</a
                           >
                         {/each}
@@ -336,9 +347,9 @@
             <li>
               <a class="is-inactive">{selectedSubSubLink.label}</a>
             </li>
-          {:else if selectedLink.href + selectedSubLink.href != $page.url.pathname}
+          {:else if selectedLink.href + selectedSubLink.href != normalizedPath}
             <li>
-              <a class="is-inactive">{decodeURIComponent(_.last($page.url.pathname.split("/")))}</a>
+              <a class="is-inactive">{decodeURIComponent(_.last(normalizedPath.split("/")))}</a>
             </li>
           {/if}
         {/if}
@@ -360,17 +371,7 @@
       </div>
     {/if}
 
-    {#if selectedSubLink?.cashflowTypePicker}
-      <BoxedTabs
-        options={[
-          { label: "Flat", value: "flat" },
-          { label: "Hierarchy", value: "hierarchy" }
-        ]}
-        bind:value={$cashflowType}
-      />
-    {/if}
-
-    {#if selectedSubLink?.maxDepthSelector && ($cashflowExpenseDepthAllowed.max > 1 || $cashflowIncomeDepthAllowed.max > 1) && $cashflowType == "hierarchy"}
+    {#if selectedSubLink?.maxDepthSelector && ($cashflowExpenseDepthAllowed.max > 1 || $cashflowIncomeDepthAllowed.max > 1)}
       <div class="dropdown is-right is-hoverable">
         <div class="dropdown-trigger">
           <button class="button is-small" aria-haspopup="true">
@@ -406,7 +407,7 @@
       <MonthPicker bind:value={$month} max={$dateMax} min={$dateMin} />
     {/if}
 
-    {#if selectedSubLink?.financialYearPicker || selectedLink?.financialYearPicker}
+    {#if selectedSubSubLink?.financialYearPicker || selectedSubLink?.financialYearPicker || selectedLink?.financialYearPicker}
       <div class="has-text-centered">
         <div class="select is-small">
           <select bind:value={$year}>

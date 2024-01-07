@@ -12,13 +12,13 @@
 
         packages.default = pkgs.buildGoModule {
           pname = "paisa-cli";
-          version = "0.5.7";
+          version = "0.6.2";
 
           src = ./.;
 
           nativeBuildInputs = [ pkgs.nodejs-18_x ];
 
-          vendorSha256 = "sha256-7JK2HwEhnWhLwT3KFcFVurdi9lp3UkyNBP5ESDkBfxE=";
+          vendorHash = "sha256-9VM6+0h6DMtlA+RvCfpDffAvaq7jRmBVVFTbdUfYwsA=";
 
           CGO_ENABLED = 1;
 

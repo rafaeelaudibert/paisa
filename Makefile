@@ -25,6 +25,9 @@ sample:
 publish:
 	nix develop --command bash -c 'mkdocs build'
 
+parser:
+	npm run parser-build-debug
+
 lint:
 	./node_modules/.bin/prettier --check src
 	npm run check
@@ -73,6 +76,7 @@ generate-fonts:
 	node generate-font.js
 
 node2nix:
+	npm install --lockfile-version 2
 	node2nix --development -18 --input package.json \
 	--lock package-lock.json \
 	--node-env ./flake/node-env.nix \

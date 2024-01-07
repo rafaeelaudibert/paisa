@@ -5,7 +5,9 @@ hide:
   - feedback
 ---
 
-#
+<div class="hero" markdown>
+# Personal Finance Manager
+</div>
 
 <div class="home" markdown>
 === ":material-currency-inr: INR"
@@ -63,15 +65,15 @@ hide:
     ```
 
 
-<p style="text-align: center; margin-bottom: 40px">
-  <a class="md-button md-button--primary" style="margin-right: 20px;" href="/getting-started/installation/">Install</a>
+<p style="text-align: center; margin-bottom: 50px">
+  <a class="md-button md-button--primary" style="margin-right: 50px;" href="/getting-started/installation/">Install</a>
   <a class="md-button md-button--primary" href="https://demo.paisa.fyi">Demo</a>
 </p>
 
 
 <div class="features-container" markdown>
 <div class="features" markdown>
-- :material-file-table: Builds on top of the **[ledger](https://www.ledger-cli.org/)** double entry accounting tool.
+- :fontawesome-regular-file-lines: Builds on top of the **[ledger](https://www.ledger-cli.org/)** double entry accounting tool.
 - :simple-gnuprivacyguard: Your financial **data** never leaves your system.
 - :simple-git: The journal and configuration information are stored in **plain text** files
   that can be easily version controlled. You can collaborate with
@@ -87,7 +89,7 @@ hide:
   decisions.
 </div>
 
-<div class="thumbnail-container">
+<div class="thumbnail-container app-frame win dark" data-title="Paisa">
   <div class="thumbnail">
     <iframe src="https://demo1.paisa.fyi" frameborder="0" scrolling="no"></iframe>
   </div>

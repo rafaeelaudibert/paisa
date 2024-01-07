@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json-schema.org/draft-07/schema",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://paisa.fyi/schema.json",
   "title": "Paisa",
   "description": "Paisa configuration",
@@ -44,9 +44,55 @@
       "maximum": 12,
       "description": "First month of the financial year. This can be set to 1 to follow January to December."
     },
+    "week_starting_day": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6,
+      "description": "First day of the week. 0 represents Sunday, 1 represents Monday and so on."
+    },
+    "strict": {
+      "ui:widget": "boolean",
+      "type": "string",
+      "description": "When strict mode is enabled, all the accounts and commodities should be defined before use.",
+      "enum": ["", "yes", "no"]
+    },
     "retirement": {
       "type": "object",
       "ui:widget": "hidden"
+    },
+    "user_accounts": {
+      "description": "List of user accounts",
+      "type": "array",
+      "default": [
+        {
+          "username": "john.doe",
+          "password": ""
+        }
+      ],
+      "itemsUniqueProperties": ["username"],
+      "items": {
+        "type": "object",
+        "description": "User account configuration",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Username for the account",
+            "minLength": 1,
+            "ui:order": 1,
+            "pattern": "^[A-Za-z0-9.-_]+$"
+          },
+          "password": {
+            "type": "string",
+            "ui:widget": "password",
+            "ui:order": 2,
+            "description": "Password for the account",
+            "pattern": "^sha256:[A-Fa-f0-9]{64}$"
+          }
+        },
+        "ui:header": "username",
+        "required": ["username", "password"],
+        "additionalProperties": false
+      }
     },
     "goals": {
       "description": "Goals configuration",
@@ -106,6 +152,10 @@
                 },
                 "ui:widget": "accounts",
                 "uniqueItems": true
+              },
+              "priority": {
+                "type": "integer",
+                "description": "Priority of the goal. Goals with higher priority will be shown first"
               }
             },
             "ui:header": "name",
@@ -140,6 +190,29 @@
                 "type": "number",
                 "description": "Savings Target"
               },
+              "target_date": {
+                "type": "string",
+                "oneOf": [
+                  {
+                    "format": "date"
+                  },
+                  {
+                    "type": "string",
+                    "enum": [""]
+                  }
+                ],
+                "description": "Savings Target date"
+              },
+              "rate": {
+                "type": "number",
+                "minimum": 0,
+                "description": "The expected rate of return per year"
+              },
+              "payment_per_period": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Expected monthly investment amount"
+              },
               "accounts": {
                 "type": "array",
                 "description": "List of savings accounts",
@@ -149,10 +222,17 @@
                 },
                 "ui:widget": "accounts",
                 "uniqueItems": true
+              },
+              "priority": {
+                "type": "integer",
+                "description": "Priority of the goal. Goals with higher priority will be shown first"
               }
             },
             "ui:header": "name",
             "required": ["name", "icon", "target", "accounts"],
+            "dependentRequired": {
+              "target_date": ["rate"]
+            },
             "additionalProperties": false
           }
         }
@@ -277,7 +357,8 @@
                   "in-mfapi",
                   "com-yahoo",
                   "com-purifiedbytes-nps",
-                  "com-purifiedbytes-metal"
+                  "com-purifiedbytes-metal",
+                  "co-alphavantage"
                 ]
               },
               "code": {

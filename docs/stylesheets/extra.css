@@ -36,9 +36,30 @@
   color: rgb(161, 161, 161);
 }
 
+.hero {
+  margin-top: 0px;
+  margin-bottom: 30px;
+}
+
+.hero h1 {
+  margin-bottom: 30px;
+  text-align: center;
+  color: inherit;
+  font-weight: 700;
+}
+
+.hero p {
+  text-align: justify;
+  max-width: 640px;
+  margin: auto;
+  line-height: 1.28;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.72rem;
+}
+
 .home .tabbed-set {
   max-width: 510px;
-  margin: -70px auto 30px auto !important;
+  margin: 0px auto 50px auto !important;
 }
 
 .home ul li {
@@ -61,6 +82,9 @@
 
 .thumbnail-container {
   flex-basis: 50%;
+  box-shadow:
+    0 0 10px rgba(0, 0, 0, 0.1),
+    0 0 30px rgb(0, 0, 0, 0.05);
 }
 
 .thumbnail {
@@ -68,10 +92,6 @@
   overflow: hidden;
   width: 100%;
   height: 500px;
-  border-radius: 10px;
-  box-shadow:
-    0 0 10px rgba(0, 0, 0, 0.5),
-    0 0 30px rgb(0, 0, 0, 0.25);
 }
 
 .thumbnail iframe {
@@ -90,4 +110,20 @@
   .thumbnail-container {
     display: none;
   }
+}
+
+.app-frame {
+  --padding-h: 0;
+  --padding-v: 0;
+  --bar-height: 33px;
+  --border-width: 0;
+  --bar-inset: 10px;
+}
+
+.app-frame.win {
+  --button-inset: 12px;
+}
+
+.app-frame::after {
+  font-family: inherit;
 }

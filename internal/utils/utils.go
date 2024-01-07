@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"sort"
@@ -60,6 +62,12 @@ func FYHuman(date time.Time) string {
 	} else {
 		return fmt.Sprintf("%d - %d", date.Year(), (date.Year()+1)%100)
 	}
+}
+
+func ParseFY(fy string) (time.Time, time.Time) {
+	start, _ := time.Parse("2006", strings.Split(fy, " ")[0])
+	start = start.AddDate(0, int(config.GetConfig().FinancialYearStartingMonth-time.January), 0)
+	return BeginningOfFinancialYear(start), EndOfFinancialYear(start)
 }
 
 func BeginningOfFinancialYear(date time.Time) time.Time {
@@ -133,6 +141,10 @@ func IsSameOrParent(account string, comparison string) bool {
 	return strings.HasPrefix(account, comparison+":")
 }
 
+func FirstName(account string) string {
+	return strings.Split(account, ":")[0]
+}
+
 func IsParent(account string, comparison string) bool {
 	return strings.HasPrefix(account, comparison+":")
 }
@@ -159,6 +171,21 @@ func MaxTime(a time.Time, b time.Time) time.Time {
 
 type GroupableByDate interface {
 	GroupDate() time.Time
+}
+
+func GroupByDate[G GroupableByDate](groupables []G) map[string][]G {
+	grouped := make(map[string][]G)
+	for _, g := range groupables {
+		key := g.GroupDate().Format("2006-01-02")
+		ps, ok := grouped[key]
+		if ok {
+			grouped[key] = append(ps, g)
+		} else {
+			grouped[key] = []G{g}
+		}
+
+	}
+	return grouped
 }
 
 func GroupByMonth[G GroupableByDate](groupables []G) map[string][]G {
@@ -229,4 +256,18 @@ func OpenDB() (*gorm.DB, error) {
 
 func Dos2Unix(str string) string {
 	return strings.ReplaceAll(str, "\r\n", "\n")
+}
+
+func ReplaceLast(haystack, needle, replacement string) string {
+	i := strings.LastIndex(haystack, needle)
+	if i == -1 {
+		return haystack
+	}
+	return haystack[:i] + replacement + haystack[i+len(needle):]
+}
+
+func Sha256(str string) string {
+	h := sha256.New()
+	h.Write([]byte(str))
+	return hex.EncodeToString(h.Sum(nil))
 }

@@ -1,5 +1,4 @@
 import * as d3 from "d3";
-import legend from "d3-svg-legend";
 import _ from "lodash";
 import {
   forEachMonth,
@@ -12,7 +11,8 @@ import {
   tooltip,
   type InvestmentYearlyCard,
   rem,
-  now
+  now,
+  type Legend
 } from "./utils";
 import { generateColorScheme } from "./colors";
 import type dayjs from "dayjs";
@@ -21,12 +21,12 @@ function financialYear(card: InvestmentYearlyCard) {
   return `${card.start_date.format("YYYY")} - ${card.end_date.format("YY")}`;
 }
 
-export function renderMonthlyInvestmentTimeline(postings: Posting[]) {
+export function renderMonthlyInvestmentTimeline(postings: Posting[]): Legend[] {
   const id = "#d3-investment-timeline";
   const timeFormat = "MMM-YYYY";
   const MAX_BAR_WIDTH = rem(40);
   const svg = d3.select(id),
-    margin = { top: rem(40), right: rem(30), bottom: rem(60), left: rem(40) },
+    margin = { top: rem(15), right: rem(30), bottom: rem(60), left: rem(40) },
     width =
       document.getElementById(id.substring(1)).parentElement.clientWidth -
       margin.left -
@@ -184,24 +184,18 @@ export function renderMonthlyInvestmentTimeline(postings: Posting[]) {
     })
     .attr("width", Math.min(x.bandwidth(), MAX_BAR_WIDTH));
 
-  svg.append("g").attr("class", "legendOrdinal").attr("transform", "translate(40,0)");
-
-  const legendOrdinal = legend
-    .legendColor()
-    .shape("rect")
-    .orient("horizontal")
-    .shapePadding(100)
-    .labels(groups)
-    .scale(z);
-
-  svg.select(".legendOrdinal").call(legendOrdinal as any);
+  return groups.map((g) => ({
+    label: g,
+    color: z(g),
+    shape: "square"
+  }));
 }
 
-export function renderYearlyInvestmentTimeline(yearlyCards: InvestmentYearlyCard[]) {
+export function renderYearlyInvestmentTimeline(yearlyCards: InvestmentYearlyCard[]): Legend[] {
   const id = "#d3-yearly-investment-timeline";
   const BAR_HEIGHT = rem(20);
   const svg = d3.select(id),
-    margin = { top: rem(50), right: rem(20), bottom: rem(20), left: rem(70) },
+    margin = { top: rem(15), right: rem(20), bottom: rem(20), left: rem(70) },
     width =
       document.getElementById(id.substring(1)).parentElement.clientWidth -
       margin.left -
@@ -354,17 +348,11 @@ export function renderYearlyInvestmentTimeline(yearlyCards: InvestmentYearlyCard
     })
     .attr("height", y.bandwidth());
 
-  svg.append("g").attr("class", "legendOrdinal").attr("transform", `translate(${margin.top},0)`);
-
-  const legendOrdinal = legend
-    .legendColor()
-    .shape("rect")
-    .orient("horizontal")
-    .shapePadding(rem(100))
-    .labels(groups)
-    .scale(z);
-
-  svg.select(".legendOrdinal").call(legendOrdinal as any);
+  return groups.map((g) => ({
+    label: g,
+    color: z(g),
+    shape: "square"
+  }));
 }
 
 export function renderYearlyCards(yearlyCards: InvestmentYearlyCard[]) {
@@ -378,13 +366,13 @@ export function renderYearlyCards(yearlyCards: InvestmentYearlyCard[]) {
     .append("div")
     .attr("class", "column is-4")
     .append("div")
-    .attr("class", "card");
+    .attr("class", "card box py-0");
 
   card
     .append("header")
     .attr("class", "card-header")
     .append("p")
-    .attr("class", "card-header-title")
+    .attr("class", "card-header-title has-text-grey-dark")
     .text((c) => financialYear(c));
 
   card
@@ -394,7 +382,7 @@ export function renderYearlyCards(yearlyCards: InvestmentYearlyCard[]) {
     .attr("class", "content")
     .html((card) => {
       return `
-<table class="table is-narrow is-fullwidth is-size-7 is-hoverable">
+<table class="table is-narrow is-fullwidth is-size-7 is-hoverable has-text-grey">
   <tbody>
     <tr>
       <td>Gross Salary Income</td>

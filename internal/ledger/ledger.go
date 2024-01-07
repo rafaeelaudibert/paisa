@@ -64,7 +64,12 @@ func (LedgerCLI) ValidateFile(journalPath string) ([]LedgerFileError, string, er
 	}
 
 	var output, error bytes.Buffer
-	err = utils.Exec(ledgerPath, &output, &error, "--args-only", "-f", journalPath, "balance")
+	args := []string{"--args-only"}
+	if config.GetConfig().Strict == config.Yes {
+		args = append(args, "--pedantic")
+	}
+	args = append(args, "-f", journalPath, "balance")
+	err = utils.Exec(ledgerPath, &output, &error, args...)
 	if err == nil {
 		return errors, utils.Dos2Unix(output.String()), nil
 	}
@@ -127,7 +132,12 @@ func (HLedgerCLI) ValidateFile(journalPath string) ([]LedgerFileError, string, e
 	}
 
 	var output, error bytes.Buffer
-	err = utils.Exec(path, &output, &error, "-f", journalPath, "--auto", "balance")
+	args := []string{"-f", journalPath, "--auto"}
+	if config.GetConfig().Strict == config.Yes {
+		args = append(args, "--strict")
+	}
+	args = append(args, "balance")
+	err = utils.Exec(path, &output, &error, args...)
 	if err == nil {
 		return errors, utils.Dos2Unix(output.String()), nil
 	}
@@ -561,8 +571,10 @@ func execLedgerCommand(journalPath string, flags []string) ([]*posting.Posting, 
 		LotCommodity
 		TagRecurring
 		TagPeriod
+		Note
+		TransactionNote
 	)
-	args := append(append([]string{"--args-only", "-f", journalPath}, flags...), "csv", "--csv-format", "%(quoted(date)),%(quoted(payee)),%(quoted(display_account)),%(quoted(commodity(scrub(display_amount)))),%(quoted(quantity(scrub(display_amount)))),%(quoted(quantity(scrub(market(amount,date,'"+config.DefaultCurrency()+"') * 100000000)))),%(quoted(xact.filename)),%(quoted(xact.id)),%(quoted(cleared ? \"*\" : (pending ? \"!\" : \"\"))),%(quoted(xact.beg_line)),%(quoted(xact.end_line)),%(quoted(quantity(lot_price(amount)))),%(quoted(commodity(lot_price(amount)))),%(quoted(tag('Recurring'))),%(quoted(tag('Period')))\n")
+	args := append(append([]string{"--args-only", "-f", journalPath}, flags...), "csv", "--csv-format", "%(quoted(date)),%(quoted(payee)),%(quoted(display_account)),%(quoted(commodity(scrub(display_amount)))),%(quoted(quantity(scrub(display_amount)))),%(quoted(quantity(scrub(market(amount,date,'"+config.DefaultCurrency()+"') * 100000000)))),%(quoted(xact.filename)),%(quoted(xact.id)),%(quoted(cleared ? \"*\" : (pending ? \"!\" : \"\"))),%(quoted(xact.beg_line)),%(quoted(xact.end_line)),%(quoted(quantity(lot_price(amount)))),%(quoted(commodity(lot_price(amount)))),%(quoted(tag('Recurring'))),%(quoted(tag('Period'))),%(quoted(note)),%(quoted(xact.note))\n")
 
 	ledgerPath, err := binary.LedgerBinaryPath()
 	if err != nil {
@@ -673,6 +685,12 @@ func execLedgerCommand(journalPath string, flags []string) ([]*posting.Posting, 
 			tagPeriod = record[TagPeriod]
 		}
 
+		note := record[Note]
+		transactionNote := record[TransactionNote]
+		if transactionNote != "" {
+			note = utils.ReplaceLast(note, transactionNote, "")
+		}
+
 		posting := posting.Posting{
 			Date:                 date,
 			Payee:                record[Payee],
@@ -687,7 +705,9 @@ func execLedgerCommand(journalPath string, flags []string) ([]*posting.Posting, 
 			TransactionBeginLine: transactionBeginLine,
 			TransactionEndLine:   transactionEndLine,
 			Forecast:             forecast,
-			FileName:             fileName}
+			FileName:             fileName,
+			Note:                 note,
+			TransactionNote:      transactionNote}
 		postings = append(postings, &posting)
 
 	}
@@ -717,6 +737,7 @@ func execHLedgerCommand(journalPath string, prices []price.Price, flags []string
 		Description string     `json:"tdescription"`
 		ID          int64      `json:"tindex"`
 		Status      string     `json:"tstatus"`
+		Comment     string     `json:"tcomment"`
 		Tags        [][]string `json:"ttags"`
 		TSourcePos  []struct {
 			SourceColumn uint64 `json:"sourceColumn"`
@@ -725,6 +746,7 @@ func execHLedgerCommand(journalPath string, prices []price.Price, flags []string
 		} `json:"tsourcepos"`
 		Postings []struct {
 			Account string     `json:"paccount"`
+			Comment string     `json:"pcomment"`
 			Tags    [][]string `json:"ptags"`
 			Amount  []struct {
 				Commodity string `json:"acommodity"`
@@ -761,6 +783,10 @@ func execHLedgerCommand(journalPath string, prices []price.Price, flags []string
 		}
 
 		for _, p := range t.Postings {
+			// ignore balance assertions
+			if len(p.Amount) == 0 {
+				continue
+			}
 			amount := p.Amount[0]
 			totalAmount := decimal.NewFromFloat(amount.Quantity.Value)
 			totalAmountSet := false
@@ -849,7 +875,9 @@ func execHLedgerCommand(journalPath string, prices []price.Price, flags []string
 				TransactionBeginLine: t.TSourcePos[0].SourceLine,
 				TransactionEndLine:   t.TSourcePos[1].SourceLine,
 				Forecast:             forecast,
-				FileName:             fileName}
+				FileName:             fileName,
+				Note:                 p.Comment,
+				TransactionNote:      t.Comment}
 			postings = append(postings, &posting)
 
 		}

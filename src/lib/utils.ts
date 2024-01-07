@@ -1,8 +1,13 @@
+import sha256 from "crypto-js/sha256";
 import dayjs from "dayjs";
 import _ from "lodash";
 import * as d3 from "d3";
 import { loading } from "../store";
 import type { JSONSchema7 } from "json-schema";
+import { get } from "svelte/store";
+import { obscure } from "../persisted_store";
+import { error } from "@sveltejs/kit";
+import { goto } from "$app/navigation";
 
 export interface AutoCompleteItem {
   label: string;
@@ -31,12 +36,29 @@ export interface Posting {
   commodity: string;
   quantity: number;
   amount: number;
-  market_amount: number;
   status: string;
   tag_recurring: string;
   transaction_begin_line: number;
   transaction_end_line: number;
   file_name: string;
+  note: string;
+  transaction_note: string;
+
+  market_amount: number;
+  balance: number;
+}
+
+export interface IncomeStatement {
+  startingBalance: number;
+  endingBalance: number;
+  date: dayjs.Dayjs;
+  income: Record<string, number>;
+  interest: Record<string, number>;
+  equity: Record<string, number>;
+  pnl: Record<string, number>;
+  liabilities: Record<string, number>;
+  tax: Record<string, number>;
+  expenses: Record<string, number>;
 }
 
 export interface CashFlow {
@@ -78,6 +100,7 @@ export interface Transaction {
   beginLine: number;
   endLine: number;
   fileName: string;
+  note: string;
   postings: Posting[];
 }
 
@@ -338,17 +361,33 @@ export interface RetirementGoalProgress {
   name: string;
   type: string;
   icon: string;
+  postings: Posting[];
+  balances: Record<string, AssetBreakdown>;
 }
 
 export interface SavingsGoalProgress {
   savingsTotal: number;
   savingsTimeline: Point[];
   target: number;
+  targetDate: string;
+  rate: number;
   xirr: number;
   postings: Posting[];
   name: string;
   type: string;
   icon: string;
+  paymentPerPeriod: number;
+  balances: Record<string, AssetBreakdown>;
+}
+
+export interface Legend {
+  shape: "line" | "square" | "texture";
+  color: string;
+  label: string;
+  texture?: any;
+  onClick?: (legend: Legend) => void;
+
+  selected?: boolean;
 }
 
 export interface LedgerFile {
@@ -431,10 +470,15 @@ export interface Log {
 export interface GoalSummary {
   type: string;
   name: string;
+  id: string;
   icon: string;
   current: number;
   target: number;
+  targetDate: string;
+  priority: number;
 }
+
+const tokenKey = "token";
 
 const BACKGROUND = [
   "/api/editor/validate",
@@ -447,7 +491,8 @@ const BACKGROUND = [
   "/api/templates/delete",
   "/api/price/autocomplete",
   "/api/price/providers/delete/:provider",
-  "/api/price/providers"
+  "/api/price/providers",
+  "/api/config"
 ];
 
 export function ajax(
@@ -466,7 +511,9 @@ export function ajax(
   route: "/api/investment"
 ): Promise<{ assets: Posting[]; yearly_cards: InvestmentYearlyCard[] }>;
 export function ajax(route: "/api/ledger"): Promise<{ postings: Posting[] }>;
-export function ajax(route: "/api/assets/balance"): Promise<{ asset_breakdowns: AssetBreakdown[] }>;
+export function ajax(
+  route: "/api/assets/balance"
+): Promise<{ asset_breakdowns: Record<string, AssetBreakdown> }>;
 export function ajax(route: "/api/liabilities/repayment"): Promise<{ repayments: Posting[] }>;
 export function ajax(
   route: "/api/liabilities/balance"
@@ -489,6 +536,7 @@ export function ajax(route: "/api/dashboard"): Promise<{
   budget: {
     budgetsByMonth: { [key: string]: Budget };
   };
+  goalSummaries: GoalSummary[];
 }>;
 
 export function ajax(
@@ -526,7 +574,7 @@ export function ajax(route: "/api/expense"): Promise<{
     investments: { [key: string]: Posting[] };
     taxes: { [key: string]: Posting[] };
   };
-  graph: { [key: string]: { flat: Graph; hierarchy: Graph } };
+  graph: { [key: string]: Graph };
 }>;
 
 export function ajax(route: "/api/budget"): Promise<{
@@ -536,6 +584,9 @@ export function ajax(route: "/api/budget"): Promise<{
 }>;
 
 export function ajax(route: "/api/cash_flow"): Promise<{ cash_flows: CashFlow[] }>;
+export function ajax(
+  route: "/api/income_statement"
+): Promise<{ yearly: Record<string, IncomeStatement> }>;
 
 export function ajax(
   route: "/api/recurring"
@@ -593,6 +644,11 @@ export function ajax(
 ): Promise<{ file: LedgerFile }>;
 
 export function ajax(
+  route: "/api/price/delete",
+  options?: RequestInit
+): Promise<{ success: boolean; message: string }>;
+
+export function ajax(
   route: "/api/sync",
   options?: RequestInit
 ): Promise<{ success: boolean; message: string }>;
@@ -622,6 +678,8 @@ export function ajax(
   options?: RequestInit
 ): Promise<{ success: boolean; error?: string }>;
 
+export function ajax(route: "/api/ping"): Promise<{ success: boolean; error?: string }>;
+
 export async function ajax(route: string, options?: RequestInit, params?: Record<string, string>) {
   if (!_.includes(BACKGROUND, route)) {
     loading.set(true);
@@ -639,11 +697,23 @@ export async function ajax(route: string, options?: RequestInit, params?: Record
     "Content-Type": "application/json"
   };
 
+  const token = localStorage.getItem(tokenKey);
+  if (!_.isEmpty(token)) {
+    options.headers["X-Auth"] = token;
+  }
+
   const response = await fetch(route, options);
   const body = await response.text();
   if (!_.includes(BACKGROUND, route)) {
     loading.set(false);
   }
+
+  if (response.status == 401 && route != "/api/ping") {
+    logout();
+    await goto("/login");
+    error(401, "Unauthorized");
+  }
+
   return JSON.parse(body, (key, value) => {
     if (
       _.isString(value) &&
@@ -658,12 +728,21 @@ export async function ajax(route: string, options?: RequestInit, params?: Record
   });
 }
 
-function obscure() {
-  return localStorage.getItem("obscure") == "true";
+export async function login(username: string, password: string) {
+  localStorage.setItem(tokenKey, `${username}:${sha256(password)}`);
+  return await ajax("/api/ping");
+}
+
+export function isLoggedIn() {
+  return !_.isEmpty(localStorage.getItem(tokenKey));
+}
+
+export function logout() {
+  localStorage.removeItem(tokenKey);
 }
 
 function normalize(value: number) {
-  if (obscure()) {
+  if (get(obscure)) {
     value = 0;
   }
 
@@ -679,17 +758,28 @@ function normalize(value: number) {
   return value;
 }
 
+export function configUpdated() {
+  dayjs.locale("en");
+  dayjs.updateLocale("en", {
+    weekStart: USER_CONFIG.week_starting_day
+  });
+}
+
 export function setNow(value: dayjs.Dayjs) {
   if (value) {
     globalThis.__now = value;
   }
 }
 
-export function now() {
+export function now(): dayjs.Dayjs {
   if (globalThis.__now) {
     return globalThis.__now;
   }
   return dayjs();
+}
+
+function unicodeMinus(value: string) {
+  return value.replace(/^-/, "\u2212");
 }
 
 export function formatCurrency(value: number, precision: number = null) {
@@ -699,10 +789,12 @@ export function formatCurrency(value: number, precision: number = null) {
     precision = USER_CONFIG.display_precision;
   }
 
-  return value.toLocaleString(USER_CONFIG.locale, {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision
-  });
+  return unicodeMinus(
+    value.toLocaleString(USER_CONFIG.locale, {
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision
+    })
+  );
 }
 
 export function formatCurrencyCrude(value: number) {
@@ -723,42 +815,50 @@ export function formatCurrencyCrudeWithPrecision(value: number, precision: numbe
     options.minimumFractionDigits = precision;
   }
 
-  return value.toLocaleString(USER_CONFIG.locale, options);
+  return unicodeMinus(value.toLocaleString(USER_CONFIG.locale, options));
 }
 
 export function formatFloat(value: number, precision = 2) {
   value = normalize(value);
 
-  return value.toLocaleString(USER_CONFIG.locale, {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision
-  });
+  return unicodeMinus(
+    value.toLocaleString(USER_CONFIG.locale, {
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision
+    })
+  );
 }
 
 export function formatFloatUptoPrecision(value: number, precision = 2) {
   value = normalize(value);
 
-  return value.toLocaleString(USER_CONFIG.locale, {
-    maximumFractionDigits: precision
-  });
+  return unicodeMinus(
+    value.toLocaleString(USER_CONFIG.locale, {
+      maximumFractionDigits: precision
+    })
+  );
 }
 
 export function formatPercentage(value: number, precision = 0) {
   value = normalize(value);
 
-  return value.toLocaleString(USER_CONFIG.locale, {
-    style: "percent",
-    minimumFractionDigits: precision
-  });
+  return unicodeMinus(
+    value.toLocaleString(USER_CONFIG.locale, {
+      style: "percent",
+      minimumFractionDigits: precision
+    })
+  );
 }
 
 export function formatFixedWidthFloat(value: number, width: number, precision = 2) {
   value = normalize(value);
 
-  const formatted = value.toLocaleString(USER_CONFIG.locale, {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision
-  });
+  const formatted = unicodeMinus(
+    value.toLocaleString(USER_CONFIG.locale, {
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision
+    })
+  );
 
   if (formatted.length < width) {
     return formatted.padStart(width, " ");
@@ -795,12 +895,7 @@ export function forEachFinancialYear(
   end: dayjs.Dayjs,
   cb?: (current: dayjs.Dayjs) => any
 ) {
-  let current = start;
-  if (current.month() < 3) {
-    current = current.year(current.year() - 1);
-  }
-  current = current.month(3).date(1);
-
+  let current = begingingOfFinancialYear(start);
   const years: dayjs.Dayjs[] = [];
   while (current.isSameOrBefore(end, "month")) {
     if (cb) {
@@ -810,6 +905,17 @@ export function forEachFinancialYear(
     current = current.add(1, "year");
   }
   return years;
+}
+
+function begingingOfFinancialYear(date: dayjs.Dayjs) {
+  date = date.startOf("month");
+  if (date.month() + 1 < USER_CONFIG.financial_year_starting_month) {
+    return date
+      .add(-1, "year")
+      .add(USER_CONFIG.financial_year_starting_month - date.month() + 1, "month");
+  } else {
+    return date.add(-(date.month() + 1 - USER_CONFIG.financial_year_starting_month), "month");
+  }
 }
 
 export function firstName(account: string) {
@@ -1013,4 +1119,26 @@ export function svgTruncate(width: number) {
       textLength = self.node().getComputedTextLength();
     }
   };
+}
+
+export function sumPostings(postings: Posting[]) {
+  return postings.reduce(
+    (sum, p) => (p.account.startsWith("Income:CapitalGains") ? sum + -p.amount : sum + p.amount),
+    0
+  );
+}
+
+export function transactionTotal(transaction: Transaction) {
+  return _.sumBy(transaction.postings, (t) => _.max([0, t.amount]));
+}
+
+export function formatTextAsHtml(text: string) {
+  return `<p>${_.trim(text).replaceAll("\n", "<br />")}</p>`;
+}
+
+export function groupSumBy(postings: Posting[], groupBy: _.ValueIteratee<Posting>) {
+  return _.chain(postings)
+    .groupBy(groupBy)
+    .mapValues((ps) => _.sumBy(ps, (p) => p.amount))
+    .value();
 }

@@ -29,7 +29,10 @@
           "transaction_end_line": 28,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": 10027.3
+          "note": "",
+          "transaction_note": "",
+          "market_amount": 10027.3,
+          "balance": 0
         },
         {
           "id": 14,
@@ -47,7 +50,10 @@
           "transaction_end_line": 33,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": -27.3
+          "note": "",
+          "transaction_note": "",
+          "market_amount": -27.3,
+          "balance": 0
         },
         {
           "id": 13,
@@ -65,7 +71,10 @@
           "transaction_end_line": 33,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": -10027.3
+          "note": "",
+          "transaction_note": "",
+          "market_amount": -10027.3,
+          "balance": 0
         }
       ]
     },
@@ -98,7 +107,10 @@
           "transaction_end_line": 24,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": 8025.3170071296
+          "note": "",
+          "transaction_note": "",
+          "market_amount": 8025.3170071296,
+          "balance": 0
         }
       ]
     },
@@ -131,7 +143,10 @@
           "transaction_end_line": 20,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": 80218.4
+          "note": "",
+          "transaction_note": "",
+          "market_amount": 80218.4,
+          "balance": 0
         }
       ]
     }

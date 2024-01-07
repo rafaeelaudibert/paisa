@@ -29,7 +29,10 @@
           "transaction_end_line": 13,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": 10025.05
+          "note": "",
+          "transaction_note": "",
+          "market_amount": 10025.05,
+          "balance": 0
         }
       ]
     }

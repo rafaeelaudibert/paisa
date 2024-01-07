@@ -5,6 +5,7 @@ import (
 	"github.com/ananthakumaran/paisa/internal/config"
 	"github.com/ananthakumaran/paisa/internal/model/posting"
 	"github.com/ananthakumaran/paisa/internal/query"
+	"github.com/ananthakumaran/paisa/internal/server/assets"
 	"github.com/ananthakumaran/paisa/internal/service"
 	"github.com/ananthakumaran/paisa/internal/utils"
 	"github.com/gin-gonic/gin"
@@ -12,9 +13,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func getRetirementSummary(db *gorm.DB, conf config.RetirementGoal) GoalSummary {
-	savings := accounting.FilterByGlob(query.Init(db).Like("Assets:%").All(), conf.Savings)
-	savings = service.PopulateMarketPrice(db, savings)
+func getRetirementSummary(db *gorm.DB, ps []posting.Posting, conf config.RetirementGoal) GoalSummary {
+	savings := accounting.FilterByGlob(ps, conf.Savings)
 	savingsTotal := accounting.CurrentBalance(savings)
 
 	yearlyExpenses := decimal.NewFromFloat(conf.YearlyExpenses)
@@ -25,11 +25,13 @@ func getRetirementSummary(db *gorm.DB, conf config.RetirementGoal) GoalSummary {
 	target := yearlyExpenses.Div(decimal.NewFromFloat(conf.SWR)).Mul(decimal.NewFromFloat(100))
 
 	return GoalSummary{
-		Type:    "retirement",
-		Name:    conf.Name,
-		Current: savingsTotal,
-		Target:  target,
-		Icon:    conf.Icon,
+		Type:     "retirement",
+		Id:       "retirement-" + conf.Name,
+		Name:     conf.Name,
+		Current:  savingsTotal,
+		Target:   target,
+		Icon:     conf.Icon,
+		Priority: conf.Priority,
 	}
 }
 
@@ -53,6 +55,8 @@ func getRetirementDetail(db *gorm.DB, conf config.RetirementGoal) gin.H {
 		yearlyExpenses = calculateAverageExpense(db, conf)
 	}
 
+	balances := assets.ComputeBreakdowns(db, savingsWithCapitalGains, false)
+
 	return gin.H{
 		"type":            "retirement",
 		"name":            conf.Name,
@@ -62,5 +66,7 @@ func getRetirementDetail(db *gorm.DB, conf config.RetirementGoal) gin.H {
 		"swr":             conf.SWR,
 		"yearlyExpense":   yearlyExpenses,
 		"xirr":            service.XIRR(db, savingsWithCapitalGains),
+		"postings":        savingsWithCapitalGains,
+		"balances":        balances,
 	}
 }

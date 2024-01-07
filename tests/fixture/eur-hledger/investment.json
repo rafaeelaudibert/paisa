@@ -16,7 +16,10 @@
       "transaction_end_line": 14,
       "file_name": "main.ledger",
       "forecast": false,
-      "market_amount": 0
+      "note": "",
+      "transaction_note": "",
+      "market_amount": 0,
+      "balance": 0
     }
   ],
   "yearly_cards": [
@@ -40,7 +43,10 @@
           "transaction_end_line": 14,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": 0
+          "note": "",
+          "transaction_note": "",
+          "market_amount": 0,
+          "balance": 0
         }
       ],
       "gross_salary_income": 11000,

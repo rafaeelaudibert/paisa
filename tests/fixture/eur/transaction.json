@@ -21,7 +21,10 @@
           "transaction_end_line": 13,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": 0
+          "note": "",
+          "transaction_note": "",
+          "market_amount": 0,
+          "balance": 0
         },
         {
           "id": 4,
@@ -39,14 +42,18 @@
           "transaction_end_line": 13,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": 0
+          "note": "",
+          "transaction_note": "",
+          "market_amount": 0,
+          "balance": 0
         }
       ],
       "tag_recurring": "",
       "tag_period": "",
       "beginLine": 11,
       "endLine": 13,
-      "fileName": "main.ledger"
+      "fileName": "main.ledger",
+      "note": ""
     },
     {
       "id": "d84b6999-200b-5b90-9a3e-f94dc8a177da",
@@ -69,7 +76,10 @@
           "transaction_end_line": 6,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": 0
+          "note": "",
+          "transaction_note": "",
+          "market_amount": 0,
+          "balance": 0
         },
         {
           "id": 1,
@@ -87,14 +97,18 @@
           "transaction_end_line": 6,
           "file_name": "main.ledger",
           "forecast": false,
-          "market_amount": 0
+          "note": "",
+          "transaction_note": "",
+          "market_amount": 0,
+          "balance": 0
         }
       ],
       "tag_recurring": "",
       "tag_period": "",
       "beginLine": 4,
       "endLine": 6,
-      "fileName": "main.ledger"
+      "fileName": "main.ledger",
+      "note": ""
     }
   ]
 }

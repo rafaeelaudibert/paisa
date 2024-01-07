@@ -69,6 +69,11 @@ type Account struct {
 	Icon string `json:"icon" yaml:"icon"`
 }
 
+type UserAccount struct {
+	Username string `json:"username" yaml:"username"`
+	Password string `json:"password" yaml:"password"`
+}
+
 type Goals struct {
 	Retirement []RetirementGoal `json:"retirement" yaml:"retirement"`
 	Savings    []SavingsGoal    `json:"savings" yaml:"savings"`
@@ -81,13 +86,18 @@ type RetirementGoal struct {
 	Expenses       []string `json:"expenses" yaml:"expenses"`
 	Savings        []string `json:"savings" yaml:"savings"`
 	YearlyExpenses float64  `json:"yearly_expenses" yaml:"yearly_expenses"`
+	Priority       int      `json:"priority" yaml:"priority"`
 }
 
 type SavingsGoal struct {
-	Name     string   `json:"name" yaml:"name"`
-	Icon     string   `json:"icon" yaml:"icon"`
-	Target   float64  `json:"target" yaml:"target"`
-	Accounts []string `json:"accounts" yaml:"accounts"`
+	Name             string   `json:"name" yaml:"name"`
+	Icon             string   `json:"icon" yaml:"icon"`
+	Target           float64  `json:"target" yaml:"target"`
+	TargetDate       string   `json:"target_date" yaml:"target_date"`
+	Rate             float64  `json:"rate" yaml:"rate"`
+	PaymentPerPeriod float64  `json:"payment_per_period" yaml:"payment_per_period"`
+	Accounts         []string `json:"accounts" yaml:"accounts"`
+	Priority         int      `json:"priority" yaml:"priority"`
 }
 
 type ScheduleAL struct {
@@ -106,14 +116,16 @@ type AllocationTarget struct {
 }
 
 type Config struct {
-	JournalPath                string     `json:"journal_path" yaml:"journal_path"`
-	DBPath                     string     `json:"db_path" yaml:"db_path"`
-	Readonly                   bool       `json:"readonly" yaml:"readonly"`
-	LedgerCli                  string     `json:"ledger_cli" yaml:"ledger_cli"`
-	DefaultCurrency            string     `json:"default_currency" yaml:"default_currency"`
-	DisplayPrecision           int        `json:"display_precision" yaml:"display_precision"`
-	Locale                     string     `json:"locale" yaml:"locale"`
-	FinancialYearStartingMonth time.Month `json:"financial_year_starting_month" yaml:"financial_year_starting_month"`
+	JournalPath                string       `json:"journal_path" yaml:"journal_path"`
+	DBPath                     string       `json:"db_path" yaml:"db_path"`
+	Readonly                   bool         `json:"readonly" yaml:"readonly"`
+	LedgerCli                  string       `json:"ledger_cli" yaml:"ledger_cli"`
+	DefaultCurrency            string       `json:"default_currency" yaml:"default_currency"`
+	DisplayPrecision           int          `json:"display_precision" yaml:"display_precision"`
+	Locale                     string       `json:"locale" yaml:"locale"`
+	FinancialYearStartingMonth time.Month   `json:"financial_year_starting_month" yaml:"financial_year_starting_month"`
+	WeekStartingDay            time.Weekday `json:"week_starting_day" yaml:"week_starting_day"`
+	Strict                     BoolType     `json:"strict" yaml:"strict"`
 
 	Budget Budget `json:"budget" yaml:"budget"`
 
@@ -129,6 +141,8 @@ type Config struct {
 	Accounts []Account `json:"accounts" yaml:"accounts"`
 
 	Goals Goals `json:"goals" yaml:"goals"`
+
+	UserAccounts []UserAccount `json:"user_accounts" yaml:"user_accounts"`
 }
 
 var config Config
@@ -142,6 +156,8 @@ var defaultConfig = Config{
 	Locale:                     "en-IN",
 	Budget:                     Budget{Rollover: Yes},
 	FinancialYearStartingMonth: 4,
+	Strict:                     No,
+	WeekStartingDay:            0,
 	ScheduleALs:                []ScheduleAL{},
 	AllocationTargets:          []AllocationTarget{},
 	Commodities:                []Commodity{},
@@ -149,6 +165,7 @@ var defaultConfig = Config{
 	ImportTemplates:            []ImportTemplate{},
 	Accounts:                   []Account{},
 	Goals:                      Goals{Retirement: []RetirementGoal{}, Savings: []SavingsGoal{}},
+	UserAccounts:               []UserAccount{},
 }
 
 var itemsUniquePropertiesMeta = jsonschema.MustCompileString("itemsUniqueProperties.json", `{
@@ -204,6 +221,8 @@ var schema *jsonschema.Schema
 
 func init() {
 	c := jsonschema.NewCompiler()
+	c.AssertFormat = true
+	c.Draft = jsonschema.Draft2020
 	c.RegisterExtension("itemsUniqueProperties", itemsUniquePropertiesMeta, itemsUniquePropertiessCompiler{})
 	err := c.AddResource("schema.json", strings.NewReader(SchemaJson))
 	if err != nil {
