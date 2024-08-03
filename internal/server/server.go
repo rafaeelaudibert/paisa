@@ -194,6 +194,10 @@ func Build(db *gorm.DB, enableCompression bool) *gin.Engine {
 
 		c.JSON(200, GetPriceAutoCompletions(db, autoCompleteRequest))
 	})
+
+	router.GET("/api/transaction/balanced", func(c *gin.Context) {
+		c.JSON(200, GetBalancedPostings(db))
+	})
 	router.GET("/api/transaction", func(c *gin.Context) {
 		c.JSON(200, GetTransactions(db))
 	})
@@ -277,6 +281,45 @@ func Build(db *gorm.DB, enableCompression bool) *gin.Engine {
 		c.JSON(200, SaveFile(db, ledgerFile))
 	})
 
+	router.GET("/api/sheets/files", func(c *gin.Context) {
+		c.JSON(200, GetSheets(db))
+	})
+
+	router.POST("/api/sheets/file", func(c *gin.Context) {
+		var sheetFile SheetFile
+		if err := c.ShouldBindJSON(&sheetFile); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(200, GetSheet(sheetFile))
+	})
+
+	router.POST("/api/sheets/file/delete_backups", func(c *gin.Context) {
+		var sheetFile SheetFile
+		if err := c.ShouldBindJSON(&sheetFile); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(200, DeleteSheetBackups(sheetFile))
+	})
+
+	router.POST("/api/sheets/save", func(c *gin.Context) {
+		if config.GetConfig().Readonly {
+			c.JSON(200, gin.H{"saved": false, "message": "Readonly mode"})
+			return
+		}
+
+		var sheetFile SheetFile
+		if err := c.ShouldBindJSON(&sheetFile); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(200, SaveSheetFile(db, sheetFile))
+	})
+
 	router.GET("/api/account/tf_idf", func(c *gin.Context) {
 		c.JSON(200, prediction.GetTfIdf(db))
 	})
@@ -286,18 +329,23 @@ func Build(db *gorm.DB, enableCompression bool) *gin.Engine {
 	})
 
 	router.POST("/api/templates/upsert", func(c *gin.Context) {
+		if config.GetConfig().Readonly {
+			c.JSON(200, gin.H{"saved": false, "message": "Readonly mode"})
+			return
+		}
+
 		var t template.Template
 		if err := c.ShouldBindJSON(&t); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.JSON(200, template.Upsert(t.Name, t.Content))
+		c.JSON(200, gin.H{"template": template.Upsert(t.Name, t.Content), "saved": true})
 	})
 
 	router.POST("/api/templates/delete", func(c *gin.Context) {
 		if config.GetConfig().Readonly {
-			c.JSON(200, gin.H{})
+			c.JSON(200, gin.H{"success": false, "message": "Readonly mode"})
 			return
 		}
 
@@ -308,7 +356,7 @@ func Build(db *gorm.DB, enableCompression bool) *gin.Engine {
 		}
 
 		template.Delete(t.Name)
-		c.JSON(200, gin.H{})
+		c.JSON(200, gin.H{"success": true})
 	})
 
 	router.GET("/api/goals", func(c *gin.Context) {
@@ -317,6 +365,14 @@ func Build(db *gorm.DB, enableCompression bool) *gin.Engine {
 
 	router.GET("/api/goals/:type/:name", func(c *gin.Context) {
 		c.JSON(200, goal.GetGoalDetails(db, c.Param("type"), c.Param("name")))
+	})
+
+	router.GET("/api/credit_cards", func(c *gin.Context) {
+		c.JSON(200, GetCreditCards(db))
+	})
+
+	router.GET("/api/credit_cards/:account", func(c *gin.Context) {
+		c.JSON(200, GetCreditCard(db, c.Param("account")))
 	})
 
 	router.NoRoute(func(c *gin.Context) {

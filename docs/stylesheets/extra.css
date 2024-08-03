@@ -1,17 +1,34 @@
 :root > * {
-  --md-code-hl-keyword-color: #708;
-  --md-code-hl-number-color: hsl(229deg, 53%, 53%);
-  /* --md-code-hl-special-color */
-  /* --md-code-hl-function-color */
+  --md-code-hl-keyword-color: #8959a8;
+  --md-code-hl-number-color: #6c71c4;
+  /* --md-code-hl-special-color: #3e999f; */
+  --md-code-hl-function-color: #4271ae;
   /* --md-code-hl-constant-color */
   /* --md-code-hl-keyword-color */
-  --md-code-hl-string-color: #a11;
-  /* --md-code-hl-name-color */
-  /* --md-code-hl-operator-color */
+  --md-code-hl-string-color: #c82829;
+  --md-code-hl-name-color: #3e999f;
+  --md-code-hl-operator-color: #f5871f;
   /* --md-code-hl-punctuation-color */
   --md-code-hl-comment-color: #7a7a7a;
   /* --md-code-hl-generic-color */
-  --md-code-hl-variable-color: #085;
+  --md-code-hl-variable-color: #718c00;
+}
+
+:root {
+  --logo-color-background: rgb(179, 136, 255, 0.1);
+  --logo-color: #b388ff;
+  --logo-color-dark: #9971e5;
+  --logo-color-darker: #351982;
+  --account-color-asset-background: rgb(0, 176, 255, 0.1);
+  --account-color-asset: #00b0ff;
+  --account-color-expense-background: rgb(255, 23, 68, 0.1);
+  --account-color-expense: #ff1744;
+  --account-color-liability-background: rgb(255, 171, 0, 0.1);
+  --account-color-liability: #ffab00;
+  --account-color-equity-background: rgb(213, 0, 249, 0.1);
+  --account-color-equity: #d500f9;
+  --account-color-income-background: rgb(174, 234, 0, 0.1);
+  --account-color-income: #aeea00;
 }
 
 .highlight .m {
@@ -37,29 +54,50 @@
 }
 
 .hero {
-  margin-top: 0px;
-  margin-bottom: 30px;
+  margin-top: 2rem;
+  margin-bottom: 3rem;
+}
+
+.hero img {
+  height: 90px;
+  margin-top: -60px;
+  margin-bottom: 15px;
 }
 
 .hero h1 {
-  margin-bottom: 30px;
   text-align: center;
   color: inherit;
   font-weight: 700;
+  color: var(--logo-color);
+  margin-bottom: -7px;
+  margin-top: -30px;
+  font-size: 3rem;
+}
+
+.hero h1 a {
+  display: none !important;
+}
+
+.md-header__topic:first-child {
+  color: var(--logo-color);
 }
 
 .hero p {
-  text-align: justify;
+  text-align: center;
   max-width: 640px;
   margin: auto;
   line-height: 1.28;
   color: var(--md-default-fg-color--light);
-  font-size: 0.72rem;
+  font-size: 0.9rem;
+}
+
+.hero p.subtitle {
+  opacity: 0.7;
 }
 
 .home .tabbed-set {
   max-width: 510px;
-  margin: 0px auto 50px auto !important;
+  margin: 0px auto 3rem auto !important;
 }
 
 .home ul li {
@@ -69,6 +107,20 @@
 
 .home ul {
   margin-left: 0 !important;
+}
+
+.home .md-button--primary {
+  background-color: var(--logo-color);
+  border-color: var(--logo-color);
+  color: var(--logo-color-darker);
+  border-radius: 30px;
+  padding: 0.325em 1.5em;
+}
+
+.home .md-button--primary:hover {
+  background-color: var(--logo-color-dark);
+  border-color: var(--logo-color-dark);
+  color: var(--logo-color-darker);
 }
 
 .features-container {
@@ -83,8 +135,59 @@
 .thumbnail-container {
   flex-basis: 50%;
   box-shadow:
-    0 0 10px rgba(0, 0, 0, 0.1),
-    0 0 30px rgb(0, 0, 0, 0.05);
+    0 50px 100px -20px rgba(50, 50, 93, 0.25),
+    0 30px 60px -30px rgba(0, 0, 0, 0.3);
+}
+
+[data-md-color-scheme="slate"] .thumbnail-container {
+  box-shadow: none;
+}
+
+.split-codeview {
+  display: flex;
+  border-right-style: none;
+  overflow-x: scroll;
+}
+
+.split-codeview .sheet {
+  width: 75%;
+}
+
+.split-codeview .sheet-result {
+  width: 25%;
+}
+
+.split-codeview .sheet code {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.split-codeview .sheet-result code {
+  font-family: var(--md-text-font-family);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  text-align: right;
+  border-left: 1px solid hsl(0, 0%, 86%);
+}
+
+.split-codeview .sheet-result-1 code span:nth-child(1),
+.split-codeview .sheet-result-1 code span:nth-child(10),
+.split-codeview .sheet-result-2 code span:nth-child(1),
+.split-codeview .sheet-result-3 code span:nth-child(1),
+.split-codeview .sheet-result-3 code span:nth-child(6),
+.split-codeview .sheet-result-3 code span:nth-child(9),
+.split-codeview .sheet-result-3 code span:nth-child(20),
+.split-codeview .sheet-result-3 code span:nth-child(23) {
+  display: block;
+  text-align: left;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-md-color-scheme="slate"] .split-codeview .sheet-result code {
+  border-left: 1px solid hsl(215, 18%, 27%);
 }
 
 .thumbnail {
@@ -126,4 +229,111 @@
 
 .app-frame::after {
   font-family: inherit;
+}
+
+.assets-color {
+  color: var(--account-color-asset);
+}
+
+.expenses-color {
+  color: var(--account-color-expense);
+}
+
+.liabilities-color {
+  color: var(--account-color-liability);
+}
+
+.equity-color {
+  color: var(--account-color-equity);
+}
+
+.income-color {
+  color: var(--account-color-income);
+}
+
+.feature-card {
+  display: flex;
+  margin: 3.5rem 0;
+}
+
+.feature-card-container {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 3.5rem;
+}
+
+.feature-card {
+  flex-basis: 50%;
+}
+
+@media screen and (max-width: 1275px) {
+  .feature-card {
+    flex-basis: 100%;
+  }
+}
+
+.feature-card-left {
+  min-width: 5.5rem;
+}
+
+.feature-card p {
+  max-width: 22rem;
+  text-align: left;
+}
+
+.feature-card-icon {
+  display: flex;
+  align-items: start;
+  justify-content: end;
+}
+
+.feature-card-icon p {
+  margin: 0 2rem 0 0;
+}
+
+.feature-card-icon .twemoji {
+  height: 100%;
+  border-radius: 50%;
+  padding: 0.75rem;
+}
+
+.feature-card-icon svg {
+  --card-icon-size: 2rem;
+  width: var(--card-icon-size) !important;
+  height: var(--card-icon-size) !important;
+  max-height: var(--card-icon-size) !important;
+}
+
+.feature-card-icon-logo .twemoji {
+  background-color: var(--logo-color-background);
+  color: var(--logo-color);
+}
+
+.feature-card-icon-asset .twemoji {
+  background-color: var(--account-color-asset-background);
+  color: var(--account-color-asset);
+}
+
+.feature-card-icon-expense .twemoji {
+  background-color: var(--account-color-expense-background);
+  color: var(--account-color-expense);
+}
+
+.feature-card-icon-liability .twemoji {
+  background-color: var(--account-color-liability-background);
+  color: var(--account-color-liability);
+}
+
+.feature-card-icon-equity .twemoji {
+  background-color: var(--account-color-equity-background);
+  color: var(--account-color-equity);
+}
+
+.feature-card-icon-income .twemoji {
+  background-color: var(--account-color-income-background);
+  color: var(--account-color-income);
+}
+
+.language-ledger pre code {
+  max-height: 500px;
 }

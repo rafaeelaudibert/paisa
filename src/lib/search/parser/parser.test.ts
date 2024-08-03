@@ -1,5 +1,5 @@
 import { describe, test } from "bun:test";
-import { jsonLanguage } from "./query";
+import { queryLanguage } from "./query";
 import { fileTests } from "@lezer/generator/dist/test";
 
 import * as fs from "fs";
@@ -13,6 +13,6 @@ for (const file of fs.readdirSync(caseDir)) {
   const name = /^[^.]*/.exec(file)[0];
   describe(name, () => {
     for (const { name, run } of fileTests(fs.readFileSync(path.join(caseDir, file), "utf8"), file))
-      test(name, () => run(jsonLanguage.parser));
+      test(name, () => run(queryLanguage.parser));
   });
 }

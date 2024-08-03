@@ -25,13 +25,14 @@ import (
 const START_YEAR = 2014
 
 type GeneratorState struct {
-	Balance      float64
-	EPFBalance   float64
-	Ledger       *os.File
-	YearlySalary float64
-	Rent         float64
-	LoanBalance  float64
-	NiftyBalance float64
+	Balance       float64
+	CreditBalance float64
+	EPFBalance    float64
+	Ledger        *os.File
+	YearlySalary  float64
+	Rent          float64
+	LoanBalance   float64
+	NiftyBalance  float64
 }
 
 var pricesTree map[string]*btree.BTree
@@ -60,6 +61,7 @@ db_path: '%s'
 func Demo(cwd string) {
 	generateConfigFile(cwd)
 	generateJournalFile(cwd)
+	generateSheetFile(cwd)
 }
 
 func generateConfigFile(cwd string) {
@@ -91,7 +93,7 @@ goals:
       target_date: "2036-01-01"
       rate: 10
       accounts:
-        - '!Assets:Checking'
+        - '!Assets:Checking:SBI'
 allocation_targets:
   - name: Debt
     target: 40
@@ -101,10 +103,13 @@ allocation_targets:
     target: 60
     accounts:
       - Assets:Equity:*
+accounts:
+  - name: Liabilities:CreditCard:Freedom
+    icon: arcticons:chase
 schedule_al:
   - code: bank
     accounts:
-      - Assets:Checking
+      - Assets:Checking:SBI
   - code: share
     accounts:
       - Assets:Equity:*
@@ -112,6 +117,9 @@ schedule_al:
   - code: liability
     accounts:
       - Liabilities:Homeloan
+  - code: immovable
+    accounts:
+      - Assets:House
 commodities:
   - name: NIFTY
     type: mutualfund
@@ -149,6 +157,14 @@ commodities:
     price:
       provider: com-purifiedbytes-nps
       code: SM008003
+credit_cards:
+    - account: Liabilities:CreditCard:Freedom
+      credit_limit: 150000
+      statement_end_day: 8
+      due_day: 20
+      network: visa
+      number: "0007"
+      expiration_date: "2029-05-01"
 `
 	log.Info("Generating config file: ", configFilePath)
 	journalFilePath := filepath.Join(cwd, "main.ledger")
@@ -271,16 +287,16 @@ func emitChitFund(state *GeneratorState) {
 		amount := fmt.Sprintf("1 CHIT @ %d", price)
 
 		if start.Month() >= time.June {
-			emitTransaction(state.Ledger, start, "Chit installment", "Assets:Checking", "Liabilities:Chit", amount)
+			emitTransaction(state.Ledger, start, "Chit installment", "Assets:Checking:SBI", "Liabilities:Chit", amount)
 		} else {
-			emitTransaction(state.Ledger, start, "Chit installment", "Assets:Checking", "Assets:Debt:Chit", amount)
+			emitTransaction(state.Ledger, start, "Chit installment", "Assets:Checking:SBI", "Assets:Debt:Chit", amount)
 		}
 
 		if start.Month() == time.June {
 			amount = fmt.Sprintf("-5 CHIT @ %d", price)
-			emitTransaction(state.Ledger, start, "Chit withdraw", "Assets:Checking", "Assets:Debt:Chit", amount)
+			emitTransaction(state.Ledger, start, "Chit withdraw", "Assets:Checking:SBI", "Assets:Debt:Chit", amount)
 			amount = fmt.Sprintf("-5 CHIT @ %d", price)
-			emitTransaction(state.Ledger, start, "Chit withdraw", "Assets:Checking", "Liabilities:Chit", amount)
+			emitTransaction(state.Ledger, start, "Chit withdraw", "Assets:Checking:SBI", "Liabilities:Chit", amount)
 		}
 
 	}
@@ -307,7 +323,7 @@ func emitSalary(state *GeneratorState, start time.Time) {
 	state.Balance += netSalary
 
 	salaryAccount := fmt.Sprintf("Income:Salary:%s", company)
-	emitTransaction(state.Ledger, start, "Salary", salaryAccount, "Assets:Checking", netSalary)
+	emitTransaction(state.Ledger, start, "Salary", salaryAccount, "Assets:Checking:SBI", netSalary)
 	emitTransaction(state.Ledger, start, "Salary EPF", salaryAccount, "Assets:Debt:EPF", epf)
 	emitTransaction(state.Ledger, start, "Salary Tax", salaryAccount, "Expenses:Tax", tax)
 	emitCommodityBuy(state.Ledger, start, "NPS_HDFC_E", salaryAccount, "Assets:Debt:NPS:HDFC:E", nps*0.75)
@@ -322,18 +338,30 @@ func emitExpense(state *GeneratorState, start time.Time) {
 	}
 
 	emit := func(payee string, account string, amount float64, fuzz float64) {
-		actualAmount := roundToK(percentRange(int(fuzz*100), 100) * amount)
+		var actualAmount float64
+		if fuzz == 1 {
+			actualAmount = amount
+		} else {
+			actualAmount = roundToK(percentRange(int(fuzz*100), 100) * amount)
+		}
 		start = start.AddDate(0, 0, 1)
-		emitTransaction(state.Ledger, start, payee, "Assets:Checking", account, actualAmount)
+		emitTransaction(state.Ledger, start, payee, "Assets:Checking:SBI", account, actualAmount)
 		state.Balance -= actualAmount
 	}
 
-	emit("Rent", "Expenses:Rent", state.Rent, 1.0)
-	emit("Internet", "Expenses:Utilities", 1500, 1.0)
-	emit("Mobile", "Expenses:Utilities", 430, 1.0)
-	emit("Shopping", "Expenses:Shopping", 3000, 0.5)
-	emit("Eat out", "Expenses:Restaurants", 2500, 0.5)
-	emit("Groceries", "Expenses:Food", 5000, 0.9)
+	emitExpense := func(payee string, account string, amount float64, fuzz float64) {
+		actualAmount := roundToK(percentRange(int(fuzz*100), 100) * amount)
+		start = start.AddDate(0, 0, 1)
+		emitTransaction(state.Ledger, start, payee, "Liabilities:CreditCard:Freedom", account, actualAmount)
+		state.CreditBalance -= actualAmount
+	}
+
+	emitExpense("Rent", "Expenses:Rent", state.Rent, 1.0)
+	emitExpense("Internet", "Expenses:Utilities", 1500, 1.0)
+	emitExpense("Mobile", "Expenses:Utilities", 430, 1.0)
+	emitExpense("Shopping", "Expenses:Shopping", 3000, 0.5)
+	emitExpense("Eat out", "Expenses:Restaurants", 2500, 0.5)
+	emitExpense("Groceries", "Expenses:Food", 5000, 0.9)
 
 	if state.LoanBalance > 0 {
 		emi := math.Min(state.Balance-10000, 30000.0)
@@ -345,12 +373,17 @@ func emitExpense(state *GeneratorState, start time.Time) {
 	}
 
 	if state.Balance < 10000 {
+		emit("Pay Credit Card Bill", "Liabilities:CreditCard:Freedom", -state.CreditBalance, 1.0)
+		state.CreditBalance = 0
 		return
 	}
 
 	if lo.Contains([]time.Month{time.January, time.April, time.November, time.December}, start.Month()) {
 		emit("Dress", "Expenses:Clothing", 5000, 0.5)
 	}
+
+	emit("Pay Credit Card Bill", "Liabilities:CreditCard:Freedom", -state.CreditBalance, 1.0)
+	state.CreditBalance = 0
 }
 func emitInvestment(state *GeneratorState, start time.Time) {
 	if start.Month() == time.April {
@@ -368,20 +401,19 @@ func emitInvestment(state *GeneratorState, start time.Time) {
 	debt := roundToK(state.Balance * 0.3)
 
 	state.Balance -= equity1
-	state.NiftyBalance += emitCommodityBuy(state.Ledger, start, "NIFTY", "Assets:Checking", "Assets:Equity:NIFTY", equity1)
+	state.NiftyBalance += emitCommodityBuy(state.Ledger, start, "NIFTY", "Assets:Checking:SBI", "Assets:Equity:NIFTY", equity1)
 
 	state.Balance -= equity2
-	emitCommodityBuy(state.Ledger, start, "PPFAS", "Assets:Checking", "Assets:Equity:PPFAS", equity2)
+	emitCommodityBuy(state.Ledger, start, "PPFAS", "Assets:Checking:SBI", "Assets:Equity:PPFAS", equity2)
 
 	state.Balance -= debt
-	emitCommodityBuy(state.Ledger, start, "ABCBF", "Assets:Checking", "Assets:Debt:ABCBF", debt)
+	emitCommodityBuy(state.Ledger, start, "ABCBF", "Assets:Checking:SBI", "Assets:Debt:ABCBF", debt)
 
 	if start.Month() == time.March {
-		units, amount := emitCommoditySell(state.Ledger, start.AddDate(0, 0, 15), "NIFTY", "Assets:Checking", "Assets:Equity:NIFTY", 75000, state.NiftyBalance)
+		units, amount := emitCommoditySell(state.Ledger, start.AddDate(0, 0, 15), "NIFTY", "Assets:Checking:SBI", "Assets:Equity:NIFTY", 75000, state.NiftyBalance)
 		state.NiftyBalance += units
 		state.Balance += amount
 	}
-
 }
 
 func generateJournalFile(cwd string) {
@@ -424,7 +456,7 @@ func generateJournalFile(cwd string) {
     Expenses:Utilities                          2000 INR
     Expenses:Shopping                           3000 INR
     Expenses:Clothing                           1000 INR
-    Assets:Checking
+    Assets:Checking:SBI
 
 `)
 	if err != nil {
@@ -456,4 +488,38 @@ func generateJournalFile(cwd string) {
 	}
 
 	emitChitFund(&state)
+}
+
+func generateSheetFile(cwd string) {
+	sheetFilePath := filepath.Join(cwd, "Schedule AL.paisa")
+	sheet := `
+date_query = {date <= [2023-03-31]}
+cost_basis(x) = cost(fifo(x AND date_query))
+cost_basis_negative(x) = cost(fifo(negate(x AND date_query)))
+
+# Immovable
+immovable = cost_basis({account = Assets:House})
+
+# Movable
+metal = 0
+art = 0
+vehicle = 0
+bank = cost_basis({account =~ /^Assets:Checking:SBI/})
+share = cost_basis({account =~ /^Assets:Equity:.*/ OR
+                    account =~ /^Assets:Debt:.*/})
+insurance = 0
+loan = 0
+cash = 0
+
+# Liability
+liability = cost_basis_negative({account =~ /^Liabilities:Homeloan/})
+
+# Total
+total = immovable + metal + art + vehicle + bank + share + insurance + loan + cash - liability
+`
+	log.Info("Generating sheet file: ", sheetFilePath)
+	err := os.WriteFile(sheetFilePath, []byte(sheet), 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

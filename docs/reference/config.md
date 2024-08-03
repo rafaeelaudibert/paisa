@@ -42,6 +42,12 @@ journal_path: /home/john/Documents/paisa/main.ledger
 # REQUIRED
 db_path: /home/john/Documents/paisa/paisa.db
 
+# Path to your sheets directory. It can be absolute or relative to the
+# configuration file. The sheets directory will be created if it does not exist.
+# By default it will be created in the same directory as the journal file.
+# OPTIONAL, DEFAULT: same directory as journal file.
+sheets_directory: sheets
+
 # The ledger client to use
 # OPTIONAL, DEFAULT: ledger, ENUM: ledger, hledger, beancount
 ledger_cli: ledger
@@ -53,11 +59,29 @@ ledger_cli: ledger
 # OPTIONAL, DEFAULT: INR
 default_currency: INR
 
+# The precision to show in UI. NOTE: This applies only to the UI, not
+# to the entries in journal.
+#
+# OPTIONAL, DEFAULT: 0
+display_precision: 0
+
+# The column to align the amount in the editor.
+#
+# OPTIONAL, DEFAULT: 52
+amount_alignment_column: 52
+
 # The locale used to format numbers. The list of locales supported
 # depends on your browser. It's known to work well with en-US and en-IN.
 #
 # OPTIONAL, DEFAULT: en-IN
 locale: en-IN
+
+# The time zone used to parse and format dates. If not set, system
+# time zone will be used. Example values are Asia/Kolkata,
+# America/New_York, etc
+#
+# OPTIONAL, DEFAULT: system timezone
+time_zone: ""
 
 # First month of the financial year. This can be set to 1 to follow
 # January to December.
@@ -262,4 +286,22 @@ user_accounts:
     password: sha256:a96dc73edd639b1c711b006e714bd2ff5bf5c1aecd77d0b3c3370403c66d58e5
     # Required, password hashed twice with sha256, then prefixed sha256:
     # echo -n 'secret' | sha256sum | head -c 64 | sha256sum | head -c 64
+
+## List of credit cards
+# OPTIONAL, DEFAULT: []
+credit_cards:
+  - account: Liabilities:CreditCard:Freedom
+    # Required, account name
+    credit_limit: 150000
+    # Required, credit limit of the card
+    statement_end_day: 8
+    # Required, the day of the month when the statement is generated
+    due_day: 20
+    # Required, the day of the month when the payment is due
+    network: visa
+    # Required, the network of the card
+    number: "0007"
+    # Required, the last 4 digits of the card number
+    expiration_date: "2029-05-01"
+    # Required, the expiration date of the card
 ```

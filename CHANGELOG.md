@@ -1,5 +1,37 @@
 # CHANGELOG
 
+### 0.6.6 (2024-02-10)
+
+* Improve tables (make it sortable)
+* Show tabulated value on allocation page
+* Show invested value on goals page
+* Bug fixes
+
+### 0.6.5 (2024-02-02)
+
+* Add Liabilities > [Credit Card](https://paisa.fyi/reference/credit-cards) page
+* Support password protected XLSX file
+* Allow user to configure timezone
+* Bug fixes
+
+### 0.6.4 (2024-01-22)
+
+* Add checking accounts balance to dashboard
+* Improve template management UI
+* Improve spinner and page transition
+* Bug fixes
+
+### 0.6.3 (2024-01-13)
+
+* Introduce [Sheets](https://paisa.fyi/reference/sheets/): A notepad calculator with access to your ledger
+* Remove flat option from cashflow > yearly page
+* Dockerimage now installs paisa to /usr/bin
+* Improve legends rendering on all pages
+* Allow user to cancel pdf password prompt
+* Add new warning for missing assets accounts from allocation target
+* Support hledger's balance assertion
+* Bug fixes
+
 ### 0.6.2 (2023-12-23)
 
 * New logo

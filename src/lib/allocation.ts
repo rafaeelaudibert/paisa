@@ -9,12 +9,12 @@ import {
   lastName,
   parentName,
   secondName,
-  textColor,
   tooltip,
   skipTicks,
   rem,
   now,
-  type Legend
+  type Legend,
+  darkenOrLighten
 } from "./utils";
 import COLORS, { generateColorScheme } from "./colors";
 import chroma from "chroma-js";
@@ -280,7 +280,7 @@ function renderPartition(
     .attr("data-tippy-content", (d) => {
       return tooltip([
         ["Account", [d.id, "has-text-right"]],
-        ["MarketAmount", [formatCurrency(d.value), "has-text-weight-bold has-text-right"]],
+        ["Market Value", [formatCurrency(d.value), "has-text-weight-bold has-text-right"]],
         ["Percentage", [percent(d), "has-text-weight-bold has-text-right"]]
       ]);
     })
@@ -289,7 +289,7 @@ function renderPartition(
     .style("width", (d: any) => d.x1 - d.x0 + "px")
     .style("height", (d: any) => d.y1 - d.y0 + "px")
     .style("background", (d) => color(d.id))
-    .style("color", (d) => textColor(color(d.id)));
+    .style("color", (d) => darkenOrLighten(color(d.id)));
 
   cell
     .append("p")
@@ -309,13 +309,12 @@ export function renderAllocationTimeline(
   const timeline = _.map(aggregatesTimeline, (aggregates) => {
     return _.chain(aggregates)
       .values()
-      .filter((a) => a.amount != 0)
+      .filter((a) => a.market_amount != 0)
       .groupBy((a) => secondName(a.account))
       .map((aggregates, group) => {
         return {
           date: aggregates[0].date,
           account: group,
-          amount: _.sum(_.map(aggregates, (a) => a.amount)),
           market_amount: _.sum(_.map(aggregates, (a) => a.market_amount)),
           timestamp: aggregates[0].date
         };
@@ -332,8 +331,12 @@ export function renderAllocationTimeline(
     assets,
     _.map(assets, () => 0)
   );
-  const start = timeline[0][0].timestamp,
+  const start = timeline[0]?.[0]?.timestamp,
     end = now();
+
+  if (!start) {
+    return [];
+  }
 
   interface Point {
     date: dayjs.Dayjs;
