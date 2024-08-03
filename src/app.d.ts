@@ -34,6 +34,7 @@ interface UserConfig {
   db_path: string;
   financial_year_starting_month: number;
   display_builtin_templates: boolean;
+  amount_alignment_column: number;
   week_starting_day: number;
   goals: Record<string, Array<GoalSummary>>;
   accounts: {
@@ -69,6 +70,10 @@ declare namespace App {
 declare module "textures" {
   const textures: any;
   export default textures;
+}
+
+declare module "xlsx-populate" {
+  export function fromDataAsync(data: ArrayBuffer, options: { password?: string }): any;
 }
 
 declare module "arima/async" {

@@ -8,6 +8,8 @@ import { get } from "svelte/store";
 import { obscure } from "../persisted_store";
 import { error } from "@sveltejs/kit";
 import { goto } from "$app/navigation";
+import chroma from "chroma-js";
+import { iconGlyph } from "./icon";
 
 export interface AutoCompleteItem {
   label: string;
@@ -104,6 +106,11 @@ export interface Transaction {
   postings: Posting[];
 }
 
+export interface BalancedPosting {
+  from: Posting;
+  to: Posting;
+}
+
 export interface Price {
   id: string;
   date: dayjs.Dayjs;
@@ -181,8 +188,10 @@ export interface LiabilityBreakdown {
 export interface Aggregate {
   date: dayjs.Dayjs;
   account: string;
-  amount: number;
   market_amount: number;
+
+  // computed
+  percent: number;
 }
 
 export interface CommodityBreakdown {
@@ -354,6 +363,8 @@ export interface AccountBudget {
 
 export interface RetirementGoalProgress {
   savingsTotal: number;
+  investmentTotal: number;
+  gainTotal: number;
   savingsTimeline: Point[];
   swr: number;
   yearlyExpense: number;
@@ -366,6 +377,8 @@ export interface RetirementGoalProgress {
 }
 
 export interface SavingsGoalProgress {
+  investmentTotal: number;
+  gainTotal: number;
   savingsTotal: number;
   savingsTimeline: Point[];
   target: number;
@@ -390,21 +403,27 @@ export interface Legend {
   selected?: boolean;
 }
 
-export interface LedgerFile {
+interface File {
   type: "file";
   name: string;
   content: string;
   versions: string[];
 }
 
-export interface LedgerDirectory {
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface LedgerFile extends File {}
+
+export interface Directory {
   type: "directory";
   name: string;
-  children: Array<LedgerDirectory | LedgerFile>;
+  children: Array<Directory | LedgerFile | SheetFile>;
 }
 
-export function buildLedgerTree(files: LedgerFile[]) {
-  const root: LedgerDirectory = {
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface SheetFile extends File {}
+
+export function buildDirectoryTree<T extends File>(files: T[]) {
+  const root: Directory = {
     type: "directory",
     name: "",
     children: []
@@ -423,7 +442,7 @@ export function buildLedgerTree(files: LedgerFile[]) {
         };
         current.children.push(found);
       }
-      current = found as LedgerDirectory;
+      current = found as Directory;
     }
     current.children.push(file);
   }
@@ -432,6 +451,13 @@ export function buildLedgerTree(files: LedgerFile[]) {
 }
 
 export interface LedgerFileError {
+  line_from: number;
+  line_to: number;
+  error: string;
+  message: string;
+}
+
+export interface SheetFileError {
   line_from: number;
   line_to: number;
   error: string;
@@ -467,6 +493,30 @@ export interface Log {
   msg: string;
 }
 
+export interface CreditCardBill {
+  openingBalance: number;
+  closingBalance: number;
+  debits: number;
+  credits: number;
+  statementStartDate: dayjs.Dayjs;
+  statementEndDate: dayjs.Dayjs;
+  dueDate: dayjs.Dayjs;
+  paidDate: dayjs.Dayjs;
+  postings: Posting[];
+  transactions: Transaction[];
+}
+
+export interface CreditCardSummary {
+  account: string;
+  network: string;
+  number: string;
+  balance: number;
+  bills: CreditCardBill[];
+  creditLimit: number;
+  expirationDate: dayjs.Dayjs;
+  yearlySpends: { [year: string]: { [month: string]: number } };
+}
+
 export interface GoalSummary {
   type: string;
   name: string;
@@ -478,22 +528,20 @@ export interface GoalSummary {
   priority: number;
 }
 
+export interface SheetLineResult {
+  line: number;
+  result: string;
+  error: boolean;
+  underline?: boolean;
+  bold?: boolean;
+  align?: "left" | "right";
+}
+
 const tokenKey = "token";
 
-const BACKGROUND = [
-  "/api/editor/validate",
-  "/api/editor/save",
-  "/api/editor/file",
-  "/api/editor/files",
-  "/api/editor/file/delete_backups",
-  "/api/templates",
-  "/api/templates/upsert",
-  "/api/templates/delete",
-  "/api/price/autocomplete",
-  "/api/price/providers/delete/:provider",
-  "/api/price/providers",
-  "/api/config"
-];
+type RequestOptions = RequestInit & {
+  background?: boolean;
+};
 
 export function ajax(
   route: "/api/config"
@@ -520,6 +568,9 @@ export function ajax(
 ): Promise<{ liability_breakdowns: LiabilityBreakdown[] }>;
 export function ajax(route: "/api/price"): Promise<{ prices: Record<string, Price[]> }>;
 export function ajax(route: "/api/transaction"): Promise<{ transactions: Transaction[] }>;
+export function ajax(
+  route: "/api/transaction/balanced"
+): Promise<{ balancedPostings: BalancedPosting[] }>;
 export function ajax(route: "/api/networth"): Promise<{
   networthTimeline: Networth[];
   xirr: number;
@@ -528,6 +579,7 @@ export function ajax(route: "/api/gain"): Promise<{
   gain_breakdown: Gain[];
 }>;
 export function ajax(route: "/api/dashboard"): Promise<{
+  checkingBalances: { asset_breakdowns: Record<string, AssetBreakdown> };
   expenses: { [key: string]: Posting[] };
   cashFlows: CashFlow[];
   transactionSequences: TransactionSequence[];
@@ -541,7 +593,7 @@ export function ajax(route: "/api/dashboard"): Promise<{
 
 export function ajax(
   route: "/api/gain/:name",
-  options?: RequestInit,
+  options?: RequestOptions,
   params?: Record<string, string>
 ): Promise<{
   gain_timeline_breakdown: AccountGain;
@@ -596,27 +648,44 @@ export function ajax(route: "/api/liabilities/interest"): Promise<{
   interest_timeline_breakdown: Interest[];
 }>;
 
+export function ajax(route: "/api/credit_cards"): Promise<{ creditCards: CreditCardSummary[] }>;
+
+export function ajax(
+  route: "/api/credit_cards/:account",
+  options?: RequestOptions,
+  params?: Record<string, string>
+): Promise<{ creditCard: CreditCardSummary; found: boolean }>;
+
 export function ajax(route: "/api/goals"): Promise<{ goals: GoalSummary[] }>;
 export function ajax(
   route: "/api/goals/retirement/:name",
-  options?: RequestInit,
+  options?: RequestOptions,
   params?: Record<string, string>
 ): Promise<RetirementGoalProgress>;
 export function ajax(
   route: "/api/goals/savings/:name",
-  options?: RequestInit,
+  options?: RequestOptions,
   params?: Record<string, string>
 ): Promise<SavingsGoalProgress>;
 
 export function ajax(route: "/api/account/tf_idf"): Promise<AccountTfIdf>;
-export function ajax(route: "/api/templates"): Promise<{ templates: ImportTemplate[] }>;
+export function ajax(
+  route: "/api/templates",
+  options?: RequestOptions
+): Promise<{ templates: ImportTemplate[] }>;
 export function ajax(
   route: "/api/templates/upsert",
-  options?: RequestInit
-): Promise<ImportTemplate>;
-export function ajax(route: "/api/templates/delete", options?: RequestInit): Promise<void>;
+  options?: RequestOptions
+): Promise<{ saved: boolean; message?: string; template: ImportTemplate }>;
+export function ajax(
+  route: "/api/templates/delete",
+  options?: RequestOptions
+): Promise<{ success: boolean; message?: string }>;
 
-export function ajax(route: "/api/editor/files"): Promise<{
+export function ajax(
+  route: "/api/editor/files",
+  options?: RequestOptions
+): Promise<{
   files: LedgerFile[];
   accounts: string[];
   commodities: string[];
@@ -625,41 +694,61 @@ export function ajax(route: "/api/editor/files"): Promise<{
 
 export function ajax(
   route: "/api/editor/validate",
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<{ errors: LedgerFileError[]; output: string }>;
 
 export function ajax(
   route: "/api/editor/save",
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<{ errors: LedgerFileError[]; saved: boolean; file: LedgerFile; message: string }>;
 
 export function ajax(
   route: "/api/editor/file",
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<{ file: LedgerFile }>;
 
 export function ajax(
   route: "/api/editor/file/delete_backups",
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<{ file: LedgerFile }>;
+
+export function ajax(route: "/api/sheets/files"): Promise<{
+  files: SheetFile[];
+  postings: Posting[];
+}>;
+
+export function ajax(
+  route: "/api/sheets/save",
+  options?: RequestOptions
+): Promise<{ saved: boolean; file: SheetFile; message: string }>;
+
+export function ajax(
+  route: "/api/sheets/file",
+  options?: RequestOptions
+): Promise<{ file: SheetFile }>;
+
+export function ajax(
+  route: "/api/sheets/file/delete_backups",
+  options?: RequestOptions
+): Promise<{ file: SheetFile }>;
 
 export function ajax(
   route: "/api/price/delete",
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<{ success: boolean; message: string }>;
 
 export function ajax(
   route: "/api/sync",
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<{ success: boolean; message: string }>;
 export function ajax(
   route: "/api/price/providers",
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<{ providers: PriceProvider[] }>;
 
 export function ajax(
   route: "/api/price/providers/delete/:provider",
-  options?: RequestInit,
+  options?: RequestOptions,
   params?: Record<string, string>
 ): Promise<{
   gain_timeline_breakdown: AccountGain;
@@ -669,19 +758,24 @@ export function ajax(
 
 export function ajax(
   route: "/api/price/autocomplete",
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<{ completions: AutoCompleteItem[] }>;
-export function ajax(route: "/api/init", options?: RequestInit): Promise<any>;
+export function ajax(route: "/api/init", options?: RequestOptions): Promise<any>;
 
 export function ajax(
   route: "/api/config",
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<{ success: boolean; error?: string }>;
 
 export function ajax(route: "/api/ping"): Promise<{ success: boolean; error?: string }>;
 
-export async function ajax(route: string, options?: RequestInit, params?: Record<string, string>) {
-  if (!_.includes(BACKGROUND, route)) {
+export async function ajax(
+  route: string,
+  options?: RequestOptions,
+  params?: Record<string, string>
+) {
+  const background = options?.background;
+  if (!background) {
     loading.set(true);
   }
 
@@ -704,7 +798,7 @@ export async function ajax(route: string, options?: RequestInit, params?: Record
 
   const response = await fetch(route, options);
   const body = await response.text();
-  if (!_.includes(BACKGROUND, route)) {
+  if (!background) {
     loading.set(false);
   }
 
@@ -717,7 +811,7 @@ export async function ajax(route: string, options?: RequestInit, params?: Record
   return JSON.parse(body, (key, value) => {
     if (
       _.isString(value) &&
-      /date|time|now/.test(key) &&
+      /Date|date|time|now/.test(key) &&
       /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$/.test(
         value
       )
@@ -871,7 +965,7 @@ export function forEachMonth(
   end: dayjs.Dayjs,
   cb: (current: dayjs.Dayjs) => any
 ) {
-  let current = start;
+  let current = start.startOf("month");
   while (current.isSameOrBefore(end, "month")) {
     cb(current);
     current = current.add(1, "month");
@@ -895,7 +989,7 @@ export function forEachFinancialYear(
   end: dayjs.Dayjs,
   cb?: (current: dayjs.Dayjs) => any
 ) {
-  let current = begingingOfFinancialYear(start);
+  let current = beginningOfFinancialYear(start);
   const years: dayjs.Dayjs[] = [];
   while (current.isSameOrBefore(end, "month")) {
     if (cb) {
@@ -907,12 +1001,12 @@ export function forEachFinancialYear(
   return years;
 }
 
-function begingingOfFinancialYear(date: dayjs.Dayjs) {
+function beginningOfFinancialYear(date: dayjs.Dayjs) {
   date = date.startOf("month");
   if (date.month() + 1 < USER_CONFIG.financial_year_starting_month) {
     return date
       .add(-1, "year")
-      .add(USER_CONFIG.financial_year_starting_month - date.month() + 1, "month");
+      .add(USER_CONFIG.financial_year_starting_month - date.month() - 1, "month");
   } else {
     return date.add(-(date.month() + 1 - USER_CONFIG.financial_year_starting_month), "month");
   }
@@ -928,6 +1022,10 @@ export function lastName(account: string) {
 
 export function secondName(account: string) {
   return account.split(":")[1];
+}
+
+export function firstNames(account: string, n: number) {
+  return _.take(account.split(":"), n).join(":");
 }
 
 export function restName(account: string) {
@@ -968,14 +1066,14 @@ export function rainbowScale(keys: string[]) {
   return d3.scaleOrdinal(_.map(keys, (_value, i) => d3.interpolateRainbow(x(i)))).domain(keys);
 }
 
-export function textColor(backgroundColor: string) {
+export function darkenOrLighten(backgroundColor: string, intensity = 2) {
   const color = d3.rgb(backgroundColor);
   // http://www.w3.org/TR/AERT#color-contrast
   const brightness = (color.r * 299 + color.g * 587 + color.b) / 1000;
   if (brightness > 125) {
-    return "black";
+    return chroma(backgroundColor).darken(intensity).hex();
   }
-  return "white";
+  return chroma(backgroundColor).brighten(intensity).hex();
 }
 
 export function tooltip(
@@ -1141,4 +1239,77 @@ export function groupSumBy(postings: Posting[], groupBy: _.ValueIteratee<Posting
     .groupBy(groupBy)
     .mapValues((ps) => _.sumBy(ps, (p) => p.amount))
     .value();
+}
+
+export function asTransaction(p: Posting): Transaction {
+  return {
+    id: p.id,
+    date: p.date,
+    payee: p.payee,
+    beginLine: p.transaction_begin_line,
+    endLine: p.transaction_end_line,
+    fileName: p.file_name,
+    note: p.transaction_note,
+    postings: [p]
+  };
+}
+
+export function svgUrl(identifier: string) {
+  return `url(${new URL("#" + identifier, window.location.toString())})`;
+}
+
+export function dueDateIcon(dueDate: dayjs.Dayjs, clearedDate: dayjs.Dayjs) {
+  let icon = "fa-circle-check";
+  let glyph = iconGlyph("fa6-solid:circle-check");
+  let color = "has-text-success";
+  let svgColor = "svg-text-success";
+
+  if (!clearedDate) {
+    if (dueDate.isBefore(now(), "day")) {
+      color = "has-text-danger";
+      icon = "fa-exclamation-triangle";
+      glyph = iconGlyph("fa6-solid:triangle-exclamation");
+      svgColor = "svg-text-danger";
+    } else {
+      color = "has-text-grey";
+      svgColor = "svg-text-grey";
+    }
+  } else {
+    if (clearedDate.isSameOrBefore(dueDate, "day")) {
+      color = "has-text-success";
+      svgColor = "svg-text-success";
+    } else {
+      color = "has-text-warning-dark";
+      svgColor = "svg-text-warning-dark";
+    }
+  }
+
+  return { icon, color, svgColor, glyph };
+}
+
+export function buildTree<I>(items: I[], accountAccessor: (item: I) => string): I[] {
+  const result: I[] = [];
+
+  const sorted = _.sortBy(items, accountAccessor);
+
+  for (const item of sorted) {
+    const account = accountAccessor(item);
+    const parts = account.split(":");
+    let current = result;
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      let found: any = current.find((c) => accountAccessor(c).split(":")[i] === part);
+      if (!found) {
+        found = { ...item };
+        current.push(found);
+      }
+
+      if (i !== parts.length - 1) {
+        found._children = found._children || [];
+        current = found._children;
+      }
+    }
+  }
+
+  return result;
 }

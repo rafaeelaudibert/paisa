@@ -1,0 +1,165 @@
+# Number
+
+10000
+
+==>
+
+Sheet(Line(Expression(Literal(Number))))
+
+# Number with comma
+
+100,00 + 1,00,00 + 10.0,00
+
+==>
+
+Sheet(Line(Expression(BinaryExpression(Expression(BinaryExpression(Expression(Literal(Number)),BinaryOperator,Expression(Literal(Number)))),BinaryOperator,Expression(Literal(Number))))))
+
+# Percent
+
+10% + 12.35%
+
+==>
+
+Sheet(Line(Expression(BinaryExpression(Expression(Literal(Percent)),BinaryOperator,Expression(Literal(Percent))))))
+
+# Assignment
+
+salary = 3000000
+
+==>
+
+Sheet(Line(Assignment(Identifier,AssignmentOperator,Expression(Literal(Number)))))
+
+# Sum
+
+income = salary + fd
+
+==>
+
+Sheet(Line(Assignment(Identifier,AssignmentOperator,Expression(BinaryExpression(Expression(Identifier),BinaryOperator,Expression(Identifier))))))
+
+# Grouping
+
+edu_cess = (tax + surcharge) * 0.04
+
+==>
+
+Sheet(Line(Assignment(Identifier,AssignmentOperator,Expression(BinaryExpression(Expression(Grouping(Expression(BinaryExpression(Expression(Identifier),BinaryOperator,Expression(Identifier))))),BinaryOperator,Expression(Literal(Number)))))))
+
+# Exp
+
+monthly_payment = r/(1 - (1 + r)^(-n)) * finance_amount
+
+==>
+
+Sheet(Line(Assignment(Identifier,AssignmentOperator,Expression(BinaryExpression(Expression(BinaryExpression(Expression(Identifier),BinaryOperator,Expression(Grouping(Expression(BinaryExpression(Expression(Literal(Number)),BinaryOperator,Expression(BinaryExpression(Expression(Grouping(Expression(BinaryExpression(Expression(Literal(Number)),BinaryOperator,Expression(Identifier))))),BinaryOperator,Expression(Grouping(Expression(UnaryExpression(UnaryOperator,Expression(Identifier))))))))))))),BinaryOperator,Expression(Identifier))))))
+
+# Precedence
+
+-1 + 2 * 3
+
+===>
+
+Sheet(Line(Expression(BinaryExpression(Expression(UnaryExpression(UnaryOperator,Expression(Literal(Number)))),BinaryOperator,Expression(BinaryExpression(Expression(Literal(Number)),BinaryOperator,Expression(Literal(Number))))))))
+
+# Call
+
+sqrt(5.2)
+
+===>
+
+Sheet(Line(Expression(FunctionCall(Identifier,Arguments(Expression(Literal(Number)))))))
+
+
+# Mutiple Args
+
+pow(5, 2)
+
+===>
+
+Sheet(Line(Expression(FunctionCall(Identifier,Arguments(Expression(Literal(Number)),Expression(Literal(Number)))))))
+
+
+# No Args
+
+pi()
+
+===>
+
+Sheet(Line(Expression(FunctionCall(Identifier))))
+
+# Postings Search Query
+
+{amount > 0}
+
+===>
+
+Sheet(Line(Expression(Postings(SearchQueryString(Query(Clause(Condition(Property(Amount),Operator(">"),Value(Number)))))))))
+
+# Function Definition
+
+square(x) = x * 2
+
+===>
+
+Sheet(Line(FunctionDefinition(Identifier,Parameters(Identifier),Expression(BinaryExpression(Expression(Identifier),BinaryOperator,Expression(Literal(Number)))))))
+
+
+# Empty Postings Search Query
+
+{}
+
+===>
+
+Sheet(Line(Expression(Postings(SearchQueryString(Query)))))
+
+# Query composition AND
+
+{amount > 0} AND {date > [2024]}
+
+===>
+
+Sheet(Line(Expression(BinaryExpression(Expression(Postings(SearchQueryString("{",Query(Clause(Condition(Property(Amount),Operator(">"),Value(Number)))),"}"))),BinaryOperator(AND),Expression(Postings(SearchQueryString("{",Query(Clause(Condition(Property(Date),Operator(">"),Value(DateValue)))),"}")))))))
+
+# Query composition OR
+
+{amount > 0} OR {date > [2024]}
+
+===>
+
+Sheet(Line(Expression(BinaryExpression(Expression(Postings(SearchQueryString("{",Query(Clause(Condition(Property(Amount),Operator(">"),Value(Number)))),"}"))),BinaryOperator(OR),Expression(Postings(SearchQueryString("{",Query(Clause(Condition(Property(Date),Operator(">"),Value(DateValue)))),"}")))))))
+
+# Comment
+
+; This is a comment
+
+===>
+
+Sheet(Comment)
+
+
+# Comment Partial line
+
+1 + 2 ; This is a comment
+
+===>
+
+Sheet(Line(Expression(BinaryExpression(Expression(Literal(Number)),BinaryOperator,Expression(Literal(Number))))),Comment)
+
+
+# Slash Comment
+
+// This is a comment
+
+===>
+
+Sheet(Comment)
+
+
+# Slash Comment Partial line
+
+1 + 2 // This is a comment
+
+===>
+
+Sheet(Line(Expression(BinaryExpression(Expression(Literal(Number)),BinaryOperator,Expression(Literal(Number))))),Comment)

@@ -25,7 +25,8 @@ async function lint(editor: EditorView): Promise<Diagnostic[]> {
   const doc = editor.state.doc;
   const response = await ajax("/api/editor/validate", {
     method: "POST",
-    body: JSON.stringify({ name: "", content: editor.state.doc.toString() })
+    body: JSON.stringify({ name: "", content: editor.state.doc.toString() }),
+    background: true
   });
 
   editorState.update((current) =>
@@ -148,4 +149,22 @@ export function updateContent(editor: EditorView, content: string) {
   const newLine = editor.state.doc.line(lineNumber);
   const newColumn = Math.min(newLine.from + column, newLine.to);
   editor.dispatch({ selection: { anchor: newColumn, head: newColumn } });
+}
+
+export function focus(editor: EditorView, retry = 5) {
+  if (!editor.hasFocus) {
+    editor.focus();
+    if (!editor.hasFocus && retry > 0) {
+      setTimeout(
+        () => {
+          try {
+            focus(editor, retry - 1);
+          } catch (e) {
+            // ignore
+          }
+        },
+        (5 - retry) * 100 + 100
+      );
+    }
+  }
 }

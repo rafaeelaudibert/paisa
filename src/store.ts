@@ -2,7 +2,7 @@ import { writable, derived, get } from "svelte/store";
 import * as d3 from "d3";
 
 import dayjs from "dayjs";
-import type { AccountTfIdf, LedgerFileError } from "$lib/utils";
+import type { AccountTfIdf, LedgerFileError, SheetFileError, SheetLineResult } from "$lib/utils";
 import _ from "lodash";
 
 export function now() {
@@ -28,7 +28,32 @@ export const initialEditorState: EditorState = {
   output: ""
 };
 
+interface SheetEditorState {
+  hasUnsavedChanges: boolean;
+  undoDepth: number;
+  redoDepth: number;
+  doc: string;
+  pendingEval: boolean;
+  evalDuration: number;
+  currentLine: number;
+  errors: SheetFileError[];
+  results: SheetLineResult[];
+}
+
+export const initialSheetEditorState: SheetEditorState = {
+  hasUnsavedChanges: false,
+  undoDepth: 0,
+  redoDepth: 0,
+  currentLine: 0,
+  doc: "",
+  pendingEval: false,
+  evalDuration: 0,
+  errors: [],
+  results: []
+};
+
 export const editorState = writable(initialEditorState);
+export const sheetEditorState = writable(initialSheetEditorState);
 
 export const month = writable(now().format("YYYY-MM"));
 export const year = writable<string>("");
@@ -55,20 +80,45 @@ export const theme = writable("light");
 
 export const loading = writable(false);
 
-let timeoutId: NodeJS.Timeout;
-export const delayedLoading = derived([loading], ([$l], set) => {
-  if (timeoutId) {
-    clearTimeout(timeoutId);
-  }
+const DELAY = 200;
+const DEBOUNCE_DELAY = 200;
 
-  if (!$l) {
-    set($l);
-  } else {
-    timeoutId = setTimeout(() => {
-      return set($l);
-    }, 200);
-  }
-});
+let timeoutId: NodeJS.Timeout;
+export const delayedLoading = derived(
+  [loading],
+  ([$l], set) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    timeoutId = setTimeout(
+      () => {
+        return set($l);
+      },
+      $l ? DELAY : DEBOUNCE_DELAY
+    );
+  },
+  false
+);
+
+let swithcTimeoutId: NodeJS.Timeout;
+export const delayedUnLoading = derived(
+  [loading],
+  ([$l], set) => {
+    if (swithcTimeoutId) {
+      clearTimeout(swithcTimeoutId);
+    }
+
+    if ($l) {
+      set($l);
+    } else {
+      swithcTimeoutId = setTimeout(() => {
+        return set($l);
+      }, DEBOUNCE_DELAY);
+    }
+  },
+  false
+);
 
 export const willClearTippy = writable(0);
 

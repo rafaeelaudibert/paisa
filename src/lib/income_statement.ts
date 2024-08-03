@@ -1,5 +1,12 @@
 import * as d3 from "d3";
-import { formatCurrency, formatCurrencyCrude, tooltip, type IncomeStatement, rem } from "./utils";
+import {
+  formatCurrency,
+  formatCurrencyCrude,
+  tooltip,
+  type IncomeStatement,
+  rem,
+  firstNames
+} from "./utils";
 import COLORS from "./colors";
 import _ from "lodash";
 import { iconGlyph, iconify } from "./icon";
@@ -204,8 +211,15 @@ export function renderIncomeStatement(element: Element) {
       .attr("fill", (d) => d.color)
       .attr("fill-opacity", 0.5)
       .attr("data-tippy-content", (d) => {
+        const secondLevelBreakdown = _.chain(d.breakdown)
+          .toPairs()
+          .groupBy((pair) => firstNames(pair[0], 2))
+          .map((pairs, label) => [label, _.sumBy(pairs, (pair) => pair[1])])
+          .fromPairs()
+          .value();
+
         return tooltip(
-          _.map(d.breakdown, (value, label) => [
+          _.map(secondLevelBreakdown, (value, label) => [
             iconify(label),
             [formatCurrency(value * d.multiplier), "has-text-right has-text-weight-bold"]
           ]),
@@ -287,9 +301,8 @@ export function renderIncomeStatement(element: Element) {
       .data(bars)
       .join("text")
       .attr("dy", "0.3rem")
-      .attr("font-size", "0.8rem")
       .attr("text-anchor", "middle")
-      .attr("class", "svg-text-black-bis")
+      .attr("class", "svg-text-black-ter has-text-weight-bold")
       .transition(t)
       .attr("x", function (d) {
         return (x(d.start) + x(d.end)) / 2;

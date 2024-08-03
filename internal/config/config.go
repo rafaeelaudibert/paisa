@@ -115,14 +115,27 @@ type AllocationTarget struct {
 	Accounts []string `json:"accounts" yaml:"accounts"`
 }
 
+type CreditCard struct {
+	Account         string `json:"account" yaml:"account"`
+	CreditLimit     int    `json:"credit_limit" yaml:"credit_limit"`
+	StatementEndDay int    `json:"statement_end_day" yaml:"statement_end_day"`
+	DueDay          int    `json:"due_day" yaml:"due_day"`
+	Network         string `json:"network" yaml:"network"`
+	Number          string `json:"number" yaml:"number"`
+	ExpirationDate  string `json:"expiration_date" yaml:"expiration_date"`
+}
+
 type Config struct {
 	JournalPath                string       `json:"journal_path" yaml:"journal_path"`
 	DBPath                     string       `json:"db_path" yaml:"db_path"`
+	SheetsDirectory            string       `json:"sheets_directory" yaml:"sheets_directory"`
 	Readonly                   bool         `json:"readonly" yaml:"readonly"`
 	LedgerCli                  string       `json:"ledger_cli" yaml:"ledger_cli"`
 	DefaultCurrency            string       `json:"default_currency" yaml:"default_currency"`
 	DisplayPrecision           int          `json:"display_precision" yaml:"display_precision"`
+	AmountAlignmentColumn      int          `json:"amount_alignment_column" yaml:"amount_alignment_column"`
 	Locale                     string       `json:"locale" yaml:"locale"`
+	TimeZone                   string       `json:"time_zone" yaml:"time_zone"`
 	FinancialYearStartingMonth time.Month   `json:"financial_year_starting_month" yaml:"financial_year_starting_month"`
 	WeekStartingDay            time.Weekday `json:"week_starting_day" yaml:"week_starting_day"`
 	Strict                     BoolType     `json:"strict" yaml:"strict"`
@@ -143,17 +156,22 @@ type Config struct {
 	Goals Goals `json:"goals" yaml:"goals"`
 
 	UserAccounts []UserAccount `json:"user_accounts" yaml:"user_accounts"`
+
+	CreditCards []CreditCard `json:"credit_cards" yaml:"credit_cards"`
 }
 
 var config Config
 var configPath string
+var location *time.Location
 
 var defaultConfig = Config{
 	Readonly:                   false,
 	LedgerCli:                  "ledger",
 	DefaultCurrency:            "INR",
 	DisplayPrecision:           0,
+	AmountAlignmentColumn:      52,
 	Locale:                     "en-IN",
+	TimeZone:                   "",
 	Budget:                     Budget{Rollover: Yes},
 	FinancialYearStartingMonth: 4,
 	Strict:                     No,
@@ -166,6 +184,7 @@ var defaultConfig = Config{
 	Accounts:                   []Account{},
 	Goals:                      Goals{Retirement: []RetirementGoal{}, Savings: []SavingsGoal{}},
 	UserAccounts:               []UserAccount{},
+	CreditCards:                []CreditCard{},
 }
 
 var itemsUniquePropertiesMeta = jsonschema.MustCompileString("itemsUniqueProperties.json", `{
@@ -307,6 +326,16 @@ func LoadConfig(content []byte, cp string) error {
 		configPath = cp
 	}
 
+	if config.TimeZone == "" {
+		location = time.Local
+	} else {
+		location, err = time.LoadLocation(config.TimeZone)
+		if err != nil {
+			location = time.Local
+			return errors.New(fmt.Sprintf("Invalid time zone: %s\n%#v", config.TimeZone, err))
+		}
+	}
+
 	return nil
 }
 
@@ -320,6 +349,24 @@ func GetJournalPath() string {
 	}
 
 	return config.JournalPath
+}
+
+func GetSheetDir() string {
+	if config.SheetsDirectory == "" {
+		return filepath.Dir(GetJournalPath())
+	}
+
+	dir := config.SheetsDirectory
+	if !filepath.IsAbs(config.SheetsDirectory) {
+		dir = filepath.Join(GetConfigDir(), config.SheetsDirectory)
+	}
+
+	err := os.MkdirAll(dir, 0750)
+	if err != nil {
+		log.Fatal("Failed to create sheets directory", err)
+	}
+
+	return dir
 }
 
 func GetDBPath() string {
@@ -375,4 +422,12 @@ func EnsureLogFilePath() (string, error) {
 
 func DefaultCurrency() string {
 	return config.DefaultCurrency
+}
+
+func TimeZone() *time.Location {
+	if location != nil {
+		return location
+	}
+
+	return time.Local
 }

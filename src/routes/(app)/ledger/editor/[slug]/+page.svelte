@@ -1,7 +1,14 @@
 <script lang="ts">
-  import { createEditor, editorState, moveToEnd, moveToLine, updateContent } from "$lib/editor";
+  import {
+    createEditor,
+    editorState,
+    focus,
+    moveToEnd,
+    moveToLine,
+    updateContent
+  } from "$lib/editor";
   import { insertTab } from "@codemirror/commands";
-  import { ajax, buildLedgerTree, type LedgerFile } from "$lib/utils";
+  import { ajax, buildDirectoryTree, type LedgerFile } from "$lib/utils";
   import { redo, undo } from "@codemirror/commands";
   import type { KeyBinding } from "@codemirror/view";
   import * as toast from "bulma-toast";
@@ -96,7 +103,8 @@
   async function revert(version: string) {
     const { file } = await ajax("/api/editor/file", {
       method: "POST",
-      body: JSON.stringify({ name: version })
+      body: JSON.stringify({ name: version }),
+      background: true
     });
 
     updateContent(editor, file.content);
@@ -112,7 +120,8 @@
   async function deleteBackups() {
     const { file } = await ajax("/api/editor/file/delete_backups", {
       method: "POST",
-      body: JSON.stringify({ name: selectedFile.name })
+      body: JSON.stringify({ name: selectedFile.name }),
+      background: true
     });
 
     selectedFile.versions = file.versions;
@@ -122,7 +131,8 @@
     const doc = editor.state.doc;
     const { errors, saved, file, message } = await ajax("/api/editor/save", {
       method: "POST",
-      body: JSON.stringify({ name: selectedFile.name, content: doc.toString() })
+      body: JSON.stringify({ name: selectedFile.name, content: doc.toString() }),
+      background: true
     });
 
     if (!saved) {
@@ -161,10 +171,8 @@
         }
       });
       if (lineNumber > 0) {
-        if (!editor.hasFocus) {
-          editor.focus();
-        }
         moveToLine(editor, lineNumber, true);
+        focus(editor);
         lineNumber = 0;
       } else {
         moveToEnd(editor);
@@ -180,7 +188,8 @@
   async function createFile(destinationFile: string) {
     const { saved, message } = await ajax("/api/editor/save", {
       method: "POST",
-      body: JSON.stringify({ name: destinationFile, content: "", operation: "create" })
+      body: JSON.stringify({ name: destinationFile, content: "", operation: "create" }),
+      background: true
     });
 
     if (saved) {
@@ -303,7 +312,7 @@
               <p class="control">
                 <button class="button is-small" on:click={(_e) => deleteBackups()}>
                   <span class="icon is-small">
-                    <i class="fas fa-trash" />
+                    <i class="fas fa-trash-can" />
                   </span>
                 </button>
               </p>
@@ -329,7 +338,7 @@
             <FileTree
               path=""
               on:select={(e) => selectFile(e.detail)}
-              files={buildLedgerTree(_.values(filesMap))}
+              files={buildDirectoryTree(_.values(filesMap))}
               selectedFileName={selectedFile?.name}
               hasUnsavedChanges={$editorState.hasUnsavedChanges}
             />

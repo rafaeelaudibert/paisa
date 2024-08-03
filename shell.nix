@@ -1,8 +1,8 @@
-{ pkgs ? import <nixpkgs> { } }:
+{ pkgs ? import <nixpkgs> { }, mkdocs ? import <nixpkgs> { } }:
 
 pkgs.mkShell {
   nativeBuildInputs = [
-    pkgs.go_1_20
+    pkgs.go_1_21
     pkgs.gotools
     pkgs.gopls
     pkgs.sqlite
@@ -12,8 +12,7 @@ pkgs.mkShell {
     pkgs.node2nix
     # pkgs.pkgsCross.mingwW64.buildPackages.gcc
 
-    pkgs.python311Packages.mkdocs
-    pkgs.python311Packages.mkdocs-material
+    mkdocs.python311Packages.mkdocs-material
     pkgs.python311Packages.beancount
 
     # test

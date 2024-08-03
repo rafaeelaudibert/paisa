@@ -12,6 +12,7 @@
   import SearchQuery from "$lib/components/SearchQuery.svelte";
   import { editorState } from "$lib/search_query_editor";
   import { get } from "svelte/store";
+  import { download } from "$lib/export";
 
   let buldEditOpen = false;
   let transactions: T[] = null;
@@ -61,6 +62,11 @@
     newFiles = files;
   }
 
+  async function downloadTransactions() {
+    const { balancedPostings } = await ajax("/api/transaction/balanced");
+    download(balancedPostings);
+  }
+
   function showPreview(detail: any) {
     ({ newFiles, updatedTransactionsCount } = bulkEdit.applyChanges(
       files,
@@ -75,7 +81,8 @@
     for (const newFile of newFiles) {
       const { saved, message } = await ajax("/api/editor/save", {
         method: "POST",
-        body: JSON.stringify({ name: newFile.name, content: newFile.content })
+        body: JSON.stringify({ name: newFile.name, content: newFile.content }),
+        background: true
       });
 
       if (!saved) {
@@ -146,6 +153,14 @@
             <div class="level-right">
               <div class="level-item">
                 <p class="is-6"><b>{filtered.length}</b> transaction(s)</p>
+              </div>
+              <div class="level-item">
+                <a on:click={(_e) => downloadTransactions()}>
+                  <span class="icon is-small">
+                    <i class="fa-solid fa-file-arrow-down"></i>
+                  </span>
+                  download
+                </a>
               </div>
             </div>
           </nav>

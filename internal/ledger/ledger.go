@@ -176,7 +176,7 @@ func (HLedgerCLI) Parse(journalPath string, prices []price.Price) ([]*posting.Po
 	}
 
 	timeRange := fmt.Sprintf("%d..%d", utils.Now().Year()-3, utils.Now().Year()+3)
-	budgetPostings, err := execHLedgerCommand(journalPath, prices, []string{"--forecast=" + timeRange, "tag:_generated-transaction"})
+	budgetPostings, err := execHLedgerCommand(journalPath, prices, []string{"--ignore-assertions", "--forecast=" + timeRange, "tag:_generated-transaction"})
 
 	if err != nil {
 		return nil, err
@@ -236,7 +236,7 @@ func (Beancount) ValidateFile(journalPath string) ([]LedgerFileError, string, er
 
 		err = utils.Exec(path, &output, &error, journalPath, "bal")
 		if err != nil {
-			log.Error(error)
+			log.Error(error.String())
 			return nil, "", err
 		}
 		return errors, utils.Dos2Unix(output.String()), nil
@@ -295,7 +295,7 @@ func (Beancount) Parse(journalPath string, prices []price.Price) ([]*posting.Pos
 	var output, error bytes.Buffer
 	err = utils.Exec(path, &output, &error, args...)
 	if err != nil {
-		log.Error(error)
+		log.Error(error.String())
 		return nil, err
 	}
 
@@ -310,7 +310,7 @@ func (Beancount) Parse(journalPath string, prices []price.Price) ([]*posting.Pos
 	locationRegex := regexp.MustCompile(`.*:(\d+):`)
 
 	for _, record := range records[1:] {
-		date, err := time.ParseInLocation("2006-01-02", record[Date], time.Local)
+		date, err := time.ParseInLocation("2006-01-02", record[Date], config.TimeZone())
 		if err != nil {
 			return nil, err
 		}
@@ -391,7 +391,7 @@ func (Beancount) Parse(journalPath string, prices []price.Price) ([]*posting.Pos
 
 	postings = lo.Map(postings, func(p *posting.Posting, _ int) *posting.Posting {
 		r := transactionRanges[p.TransactionID]
-		p.TransactionBeginLine = r.Begin - 1
+		p.TransactionBeginLine = max(r.Begin, 1) - 1
 		p.TransactionEndLine = r.End + 1
 		return p
 	})
@@ -458,7 +458,7 @@ func parseLedgerPrices(output string, defaultCurrency string) ([]price.Price, er
 
 		commodity := utils.UnQuote(match[2])
 
-		date, err := time.ParseInLocation("2006/01/02", match[1], time.Local)
+		date, err := time.ParseInLocation("2006/01/02", match[1], config.TimeZone())
 		if err != nil {
 			return nil, err
 		}
@@ -491,7 +491,7 @@ func parseHLedgerPrices(output string, defaultCurrency string) ([]price.Price, e
 			}
 		}
 
-		date, err := time.ParseInLocation("2006-01-02", match[1], time.Local)
+		date, err := time.ParseInLocation("2006-01-02", match[1], config.TimeZone())
 		if err != nil {
 			return nil, err
 		}
@@ -524,7 +524,7 @@ func parseBeancountPrices(output string, defaultCurrency string) ([]price.Price,
 			}
 		}
 
-		date, err := time.ParseInLocation("2006-01-02", match[1], time.Local)
+		date, err := time.ParseInLocation("2006-01-02", match[1], config.TimeZone())
 		if err != nil {
 			return nil, err
 		}
@@ -536,7 +536,7 @@ func parseBeancountPrices(output string, defaultCurrency string) ([]price.Price,
 }
 
 func parseAmount(amount string) (string, decimal.Decimal, error) {
-	match := regexp.MustCompile(`^(-?[0-9.,]+)([^\d,.-]+|\s*"[^"]+")$|([^\d,.-]+|\s*"[^"]+"\s*)(-?[0-9.,]+)$`).FindStringSubmatch(amount)
+	match := regexp.MustCompile(`^(-?[0-9.,]+(?:[Ee]-?[0-9]+)?)([^\d,.-]+|\s*"[^"]+")$|([^\d,.-]+|\s*"[^"]+"\s*)(-?[0-9.,]+(?:[Ee]-?[0-9]+)?)$`).FindStringSubmatch(amount)
 	if len(match) == 0 {
 		log.Errorf("Could not parse amount: <%s>", amount)
 		return "", decimal.Zero, fmt.Errorf("Could not parse amount: <%s>", amount)
@@ -584,7 +584,7 @@ func execLedgerCommand(journalPath string, flags []string) ([]*posting.Posting, 
 	var output, error bytes.Buffer
 	err = utils.Exec(ledgerPath, &output, &error, args...)
 	if err != nil {
-		log.Error(error)
+		log.Error(error.String())
 		return nil, err
 	}
 
@@ -599,7 +599,7 @@ func execLedgerCommand(journalPath string, flags []string) ([]*posting.Posting, 
 	dir := filepath.Dir(config.GetJournalPath())
 
 	for _, record := range records {
-		date, err := time.ParseInLocation("2006/01/02", record[Date], time.Local)
+		date, err := time.ParseInLocation("2006/01/02", record[Date], config.TimeZone())
 		if err != nil {
 			return nil, err
 		}
@@ -715,6 +715,42 @@ func execLedgerCommand(journalPath string, flags []string) ([]*posting.Posting, 
 	return postings, nil
 }
 
+type HLedgerPosting struct {
+	Account string     `json:"paccount"`
+	Comment string     `json:"pcomment"`
+	Tags    [][]string `json:"ptags"`
+	Amount  []struct {
+		Commodity string `json:"acommodity"`
+		Quantity  struct {
+			Value float64 `json:"floatingPoint"`
+		} `json:"aquantity"`
+		Price struct {
+			Contents struct {
+				Commodity string `json:"acommodity"`
+				Quantity  struct {
+					Value float64 `json:"floatingPoint"`
+				} `json:"aquantity"`
+			} `json:"contents"`
+			Tag string `json:"tag"`
+		} `json:"aprice"`
+	} `json:"pamount"`
+}
+
+type HLedgerTransaction struct {
+	Date        string     `json:"tdate"`
+	Description string     `json:"tdescription"`
+	ID          int64      `json:"tindex"`
+	Status      string     `json:"tstatus"`
+	Comment     string     `json:"tcomment"`
+	Tags        [][]string `json:"ttags"`
+	TSourcePos  []struct {
+		SourceColumn uint64 `json:"sourceColumn"`
+		SourceLine   uint64 `json:"sourceLine"`
+		SourceName   string `json:"sourceName"`
+	} `json:"tsourcepos"`
+	Postings []HLedgerPosting `json:"tpostings"`
+}
+
 func execHLedgerCommand(journalPath string, prices []price.Price, flags []string) ([]*posting.Posting, error) {
 	var postings []*posting.Posting
 
@@ -728,56 +764,19 @@ func execHLedgerCommand(journalPath string, prices []price.Price, flags []string
 	var output, error bytes.Buffer
 	err = utils.Exec(path, &output, &error, args...)
 	if err != nil {
-		log.Error(error)
+		log.Error(error.String())
 		return nil, err
 	}
 
-	type Transaction struct {
-		Date        string     `json:"tdate"`
-		Description string     `json:"tdescription"`
-		ID          int64      `json:"tindex"`
-		Status      string     `json:"tstatus"`
-		Comment     string     `json:"tcomment"`
-		Tags        [][]string `json:"ttags"`
-		TSourcePos  []struct {
-			SourceColumn uint64 `json:"sourceColumn"`
-			SourceLine   uint64 `json:"sourceLine"`
-			SourceName   string `json:"sourceName"`
-		} `json:"tsourcepos"`
-		Postings []struct {
-			Account string     `json:"paccount"`
-			Comment string     `json:"pcomment"`
-			Tags    [][]string `json:"ptags"`
-			Amount  []struct {
-				Commodity string `json:"acommodity"`
-				Quantity  struct {
-					Value float64 `json:"floatingPoint"`
-				} `json:"aquantity"`
-				Price struct {
-					Contents struct {
-						Commodity string `json:"acommodity"`
-						Quantity  struct {
-							Value float64 `json:"floatingPoint"`
-						} `json:"aquantity"`
-					} `json:"contents"`
-					Tag string `json:"tag"`
-				} `json:"aprice"`
-			} `json:"pamount"`
-		} `json:"tpostings"`
-	}
-
-	var transactions []Transaction
+	var transactions []HLedgerTransaction
 	err = json.Unmarshal(output.Bytes(), &transactions)
 	if err != nil {
 		return nil, err
 	}
 
 	pricesTree := buildPricesTree(prices)
-	dir := filepath.Dir(config.GetJournalPath())
-
 	for _, t := range transactions {
-		forecast := false
-		date, err := time.ParseInLocation("2006-01-02", t.Date, time.Local)
+		date, err := time.ParseInLocation("2006-01-02", t.Date, config.TimeZone())
 		if err != nil {
 			return nil, err
 		}
@@ -787,101 +786,118 @@ func execHLedgerCommand(journalPath string, prices []price.Price, flags []string
 			if len(p.Amount) == 0 {
 				continue
 			}
-			amount := p.Amount[0]
-			totalAmount := decimal.NewFromFloat(amount.Quantity.Value)
-			totalAmountSet := false
 
-			if amount.Commodity != config.DefaultCurrency() {
-				if amount.Price.Contents.Quantity.Value != 0 {
-					if amount.Price.Contents.Commodity != config.DefaultCurrency() {
-						pr := lookupPrice(pricesTree, amount.Commodity, date)
-						if !pr.Equal(decimal.Zero) {
-							totalAmount = decimal.NewFromFloat(amount.Quantity.Value).Mul(pr)
-							totalAmountSet = true
-						}
-						if !totalAmountSet {
-							pr = lookupPrice(pricesTree, amount.Price.Contents.Commodity, date)
-							if !pr.Equal(decimal.Zero) {
-								totalAmount = decimal.NewFromFloat(amount.Quantity.Value).Mul(decimal.NewFromFloat(amount.Price.Contents.Quantity.Value).Mul(pr))
-							}
-
-						}
-					} else {
-						if amount.Price.Tag == "TotalPrice" {
-							totalAmount = decimal.NewFromFloat(amount.Price.Contents.Quantity.Value)
-						} else {
-							totalAmount = decimal.NewFromFloat(amount.Price.Contents.Quantity.Value).Mul(decimal.NewFromFloat(amount.Quantity.Value))
-						}
-					}
-				} else {
-					pr := lookupPrice(pricesTree, amount.Commodity, date)
-					if !pr.Equal(decimal.Zero) {
-						totalAmount = decimal.NewFromFloat(amount.Quantity.Value).Mul(pr)
-					}
-
-				}
+			ps, err := buildHLedgerPostings(p, t, pricesTree, date)
+			if err != nil {
+				return nil, err
 			}
-
-			var tagRecurring, tagPeriod string
-
-			for _, tag := range t.Tags {
-				if len(tag) == 2 {
-					if tag[0] == "Recurring" {
-						tagRecurring = tag[1]
-					}
-
-					if tag[0] == "Period" {
-						tagPeriod = tag[1]
-					}
-
-					if tag[0] == "_generated-transaction" {
-						forecast = true
-					}
-				}
-				break
-			}
-
-			for _, tag := range p.Tags {
-				if len(tag) == 2 && tag[0] == "Recurring" {
-					tagRecurring = tag[1]
-				}
-
-				if len(tag) == 2 && tag[0] == "Period" {
-					tagPeriod = tag[1]
-				}
-				break
-			}
-
-			var fileName string
-			if !forecast {
-				fileName, err = filepath.Rel(dir, t.TSourcePos[0].SourceName)
-				if err != nil {
-					return nil, err
-				}
-
-			}
-
-			posting := posting.Posting{
-				Date:                 date,
-				Payee:                t.Description,
-				Account:              p.Account,
-				Commodity:            amount.Commodity,
-				Quantity:             decimal.NewFromFloat(amount.Quantity.Value),
-				Amount:               totalAmount,
-				TransactionID:        strconv.FormatInt(t.ID, 10),
-				Status:               strings.ToLower(t.Status),
-				TagRecurring:         tagRecurring,
-				TagPeriod:            tagPeriod,
-				TransactionBeginLine: t.TSourcePos[0].SourceLine,
-				TransactionEndLine:   t.TSourcePos[1].SourceLine,
-				Forecast:             forecast,
-				FileName:             fileName,
-				Note:                 p.Comment,
-				TransactionNote:      t.Comment}
-			postings = append(postings, &posting)
+			postings = append(postings, ps...)
 
 		}
 
+	}
+
+	return postings, nil
+}
+
+func buildHLedgerPostings(p HLedgerPosting, t HLedgerTransaction, pricesTree map[string]*btree.BTree, date time.Time) ([]*posting.Posting, error) {
+	forecast := false
+	postings := []*posting.Posting{}
+
+	var tagRecurring, tagPeriod string
+	for _, tag := range t.Tags {
+		if len(tag) == 2 {
+			if tag[0] == "Recurring" {
+				tagRecurring = tag[1]
+			}
+
+			if tag[0] == "Period" {
+				tagPeriod = tag[1]
+			}
+
+			if tag[0] == "_generated-transaction" {
+				forecast = true
+			}
+		}
+		break
+	}
+
+	for _, tag := range p.Tags {
+		if len(tag) == 2 && tag[0] == "Recurring" {
+			tagRecurring = tag[1]
+		}
+
+		if len(tag) == 2 && tag[0] == "Period" {
+			tagPeriod = tag[1]
+		}
+		break
+	}
+
+	dir := filepath.Dir(config.GetJournalPath())
+	var fileName string
+	var err error
+	if !forecast {
+		fileName, err = filepath.Rel(dir, t.TSourcePos[0].SourceName)
+		if err != nil {
+			return nil, err
+		}
+
+	}
+
+	for _, amount := range p.Amount {
+		totalAmount := decimal.NewFromFloat(amount.Quantity.Value)
+		totalAmountSet := false
+
+		if amount.Commodity != config.DefaultCurrency() {
+			if amount.Price.Contents.Quantity.Value != 0 {
+				var unconvertedTotal decimal.Decimal
+				if amount.Price.Tag == "TotalPrice" {
+					unconvertedTotal = decimal.NewFromFloat(amount.Price.Contents.Quantity.Value)
+				} else {
+					unconvertedTotal = decimal.NewFromFloat(amount.Price.Contents.Quantity.Value).Mul(decimal.NewFromFloat(amount.Quantity.Value))
+				}
+
+				if amount.Price.Contents.Commodity != config.DefaultCurrency() {
+					pr := lookupPrice(pricesTree, amount.Commodity, date)
+					if !pr.Equal(decimal.Zero) {
+						totalAmount = decimal.NewFromFloat(amount.Quantity.Value).Mul(pr)
+						totalAmountSet = true
+					}
+					if !totalAmountSet {
+						pr = lookupPrice(pricesTree, amount.Price.Contents.Commodity, date)
+						if !pr.Equal(decimal.Zero) {
+							totalAmount = unconvertedTotal.Mul(pr)
+						}
+					}
+				} else {
+					totalAmount = unconvertedTotal
+				}
+			} else {
+				pr := lookupPrice(pricesTree, amount.Commodity, date)
+				if !pr.Equal(decimal.Zero) {
+					totalAmount = decimal.NewFromFloat(amount.Quantity.Value).Mul(pr)
+				}
+			}
+		}
+
+		posting := posting.Posting{
+			Date:                 date,
+			Payee:                t.Description,
+			Account:              p.Account,
+			Commodity:            amount.Commodity,
+			Quantity:             decimal.NewFromFloat(amount.Quantity.Value),
+			Amount:               totalAmount,
+			TransactionID:        strconv.FormatInt(t.ID, 10),
+			Status:               strings.ToLower(t.Status),
+			TagRecurring:         tagRecurring,
+			TagPeriod:            tagPeriod,
+			TransactionBeginLine: t.TSourcePos[0].SourceLine,
+			TransactionEndLine:   t.TSourcePos[1].SourceLine,
+			Forecast:             forecast,
+			FileName:             fileName,
+			Note:                 p.Comment,
+			TransactionNote:      t.Comment}
+		postings = append(postings, &posting)
 	}
 
 	return postings, nil

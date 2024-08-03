@@ -5,7 +5,7 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM golang:1.20-alpine3.18 as go
+FROM golang:1.21-alpine3.18 as go
 WORKDIR /usr/src/paisa
 RUN apk --no-cache add sqlite gcc g++
 COPY go.mod go.sum ./
@@ -15,7 +15,7 @@ COPY --from=web /usr/src/paisa/web/static ./web/static
 RUN CGO_ENABLED=1 go build
 
 FROM alpine:3.18
-RUN apk --no-cache add ca-certificates ledger
+RUN apk --no-cache add ca-certificates ledger tzdata
 WORKDIR /root/
 COPY --from=go /usr/src/paisa/paisa /usr/bin
 EXPOSE 7500

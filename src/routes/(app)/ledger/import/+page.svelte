@@ -9,7 +9,7 @@
     updateContent as updatePreviewContent
   } from "$lib/editor";
   import Dropzone from "svelte-file-dropzone/Dropzone.svelte";
-  import { parse, asRows, render as renderJournal } from "$lib/sheet";
+  import { parse, asRows, render as renderJournal } from "$lib/spreadsheet";
   import _ from "lodash";
   import type { EditorView } from "codemirror";
   import { onMount } from "svelte";
@@ -17,6 +17,7 @@
   import { accountTfIdf } from "../../../../store";
   import * as toast from "bulma-toast";
   import FileModal from "$lib/components/FileModal.svelte";
+  import Modal from "$lib/components/Modal.svelte";
 
   let templates: ImportTemplate[] = [];
   let selectedTemplate: ImportTemplate;
@@ -38,24 +39,37 @@
   let previewEditor: EditorView;
 
   onMount(async () => {
+    accountTfIdf.set(await ajax("/api/account/tf_idf"));
     ({ templates } = await ajax("/api/templates"));
     selectedTemplate = templates[0];
     saveAsName = selectedTemplate.name;
-    accountTfIdf.set(await ajax("/api/account/tf_idf"));
     templateEditor = createTemplateEditor(selectedTemplate.content, templateEditorDom);
     previewEditor = createPreviewEditor(preview, previewEditorDom, { readonly: true });
   });
 
+  $: saveAsNameDuplicate = !!_.find(templates, { name: saveAsName, template_type: "custom" });
+
   async function save() {
-    const { id } = await ajax("/api/templates/upsert", {
+    const { template, saved, message } = await ajax("/api/templates/upsert", {
       method: "POST",
       body: JSON.stringify({
         name: saveAsName,
         content: templateEditor.state.doc.toString()
-      })
+      }),
+      background: true
     });
-    ({ templates } = await ajax("/api/templates"));
-    selectedTemplate = _.find(templates, { id });
+
+    if (!saved) {
+      toast.toast({
+        message: `Failed to save ${saveAsName}. reason: ${message}`,
+        type: "is-danger",
+        duration: 10000
+      });
+      return;
+    }
+
+    ({ templates } = await ajax("/api/templates", { background: true }));
+    selectedTemplate = _.find(templates, { id: template.id });
     saveAsName = selectedTemplate.name;
     toast.toast({
       message: `Saved ${saveAsName}`,
@@ -67,13 +81,28 @@
 
   async function remove() {
     const oldName = selectedTemplate.name;
-    await ajax("/api/templates/delete", {
+    const confirmed = confirm(`Are you sure you want to delete ${oldName} template?`);
+    if (!confirmed) {
+      return;
+    }
+    const { success, message } = await ajax("/api/templates/delete", {
       method: "POST",
       body: JSON.stringify({
         name: selectedTemplate.name
-      })
+      }),
+      background: true
     });
-    ({ templates } = await ajax("/api/templates"));
+
+    if (!success) {
+      toast.toast({
+        message: `Failed to remove ${oldName}. reason: ${message}`,
+        type: "is-danger",
+        duration: 10000
+      });
+      return;
+    }
+
+    ({ templates } = await ajax("/api/templates", { background: true }));
     selectedTemplate = templates[0];
     saveAsName = selectedTemplate.name;
     toast.toast({
@@ -153,7 +182,8 @@
   async function saveToFile(destinationFile: string) {
     const { saved, message } = await ajax("/api/editor/save", {
       method: "POST",
-      body: JSON.stringify({ name: destinationFile, content: preview, operation: "overwrite" })
+      body: JSON.stringify({ name: destinationFile, content: preview, operation: "overwrite" }),
+      background: true
     });
 
     if (saved) {
@@ -172,7 +202,43 @@
       });
     }
   }
+
+  function builtinNotAllowed(action: string, template: ImportTemplate) {
+    if (template?.template_type == "builtin") {
+      return `Not allowed to ${action.toLowerCase()} builtin template`;
+    }
+    return action;
+  }
+
+  let templateCreateModalOpen = false;
+  function openTemplateCreateModal() {
+    templateCreateModalOpen = true;
+  }
 </script>
+
+<Modal bind:active={templateCreateModalOpen}>
+  <svelte:fragment slot="head" let:close>
+    <p class="modal-card-title">Create Template</p>
+    <button class="delete" aria-label="close" on:click={(e) => close(e)} />
+  </svelte:fragment>
+  <div class="field" slot="body">
+    <label class="label" for="save-filename">Template Name</label>
+    <div class="control" id="save-filename">
+      <input class="input" type="text" bind:value={saveAsName} />
+      {#if saveAsNameDuplicate}
+        <p class="help is-danger">Template with the same name already exists</p>
+      {/if}
+    </div>
+  </div>
+  <svelte:fragment slot="foot" let:close>
+    <button
+      class="button is-success"
+      disabled={_.isEmpty(saveAsName) || saveAsNameDuplicate}
+      on:click={(e) => save() && close(e)}>Create</button
+    >
+    <button class="button" on:click={(e) => close(e)}>Cancel</button>
+  </svelte:fragment>
+</Modal>
 
 <FileModal bind:open={modalOpen} on:save={(e) => saveToFile(e.detail)} />
 
@@ -180,9 +246,53 @@
   <div class="container is-fluid">
     <div class="columns mb-0">
       <div class="column is-5 py-0">
-        <div class="box px-3">
-          <div class="field mb-2">
+        <div class="box p-3 mb-3 overflow-x-auto">
+          <div class="field is-grouped mb-0">
             <p class="control">
+              <span data-tippy-content="Create" data-tippy-followCursor="false">
+                <button class="button" on:click={(_e) => openTemplateCreateModal()}>
+                  <span class="icon">
+                    <i class="fas fa-file-circle-plus" />
+                  </span>
+                </button>
+              </span>
+
+              <span
+                class="ml-4"
+                data-tippy-followCursor="false"
+                data-tippy-content={$templateEditorState.hasUnsavedChanges == false
+                  ? "No Unsaved Chagnes"
+                  : builtinNotAllowed("Save", selectedTemplate)}
+              >
+                <button
+                  class="button"
+                  on:click={(_e) => save()}
+                  disabled={$templateEditorState.hasUnsavedChanges == false ||
+                    selectedTemplate?.template_type == "builtin"}
+                >
+                  <span class="icon">
+                    <i class="fas fa-floppy-disk" />
+                  </span>
+                </button>
+              </span>
+
+              <span
+                data-tippy-followCursor="false"
+                data-tippy-content={builtinNotAllowed("Delete", selectedTemplate)}
+              >
+                <button
+                  class="button"
+                  on:click={(_e) => remove()}
+                  disabled={selectedTemplate?.template_type == "builtin"}
+                >
+                  <span class="icon">
+                    <i class="fas fa-trash-can" />
+                  </span>
+                </button>
+              </span>
+            </p>
+
+            <p class="control is-expanded">
               <Select
                 bind:value={selectedTemplate}
                 showChevron={true}
@@ -191,6 +301,7 @@
                 itemId="id"
                 searchable={true}
                 clearable={false}
+                floatingConfig={{ strategy: "fixed" }}
                 on:change={(_e) => {
                   saveAsName = selectedTemplate.name;
                 }}
@@ -212,49 +323,6 @@
               </Select>
             </p>
           </div>
-
-          <div class="is-flex is-align-items-center">
-            <div class="field has-addons mb-0">
-              <p class="control">
-                <button
-                  class="button is-small"
-                  on:click={(_e) => save()}
-                  disabled={$templateEditorState.hasUnsavedChanges == false}
-                >
-                  <span class="icon is-small">
-                    <i class="fas fa-floppy-disk" />
-                  </span>
-                  <span>Save As</span>
-                </button>
-              </p>
-              <p class="control">
-                <input
-                  style="width: 250px"
-                  class="input is-small"
-                  type="text"
-                  bind:value={saveAsName}
-                />
-              </p>
-            </div>
-
-            <div class="field has-addons mb-0 ml-2">
-              <p class="control">
-                <button
-                  class="button is-small is-danger is-light invertable"
-                  on:click={(_e) => remove()}
-                  disabled={$templateEditorState.hasUnsavedChanges == true ||
-                    selectedTemplate?.template_type == "builtin"}
-                >
-                  <span class="icon is-small">
-                    <i class="fas fa-trash" />
-                  </span>
-                  <span>Delete</span>
-                </button>
-              </p>
-            </div>
-          </div>
-
-          <div class="field has-addons" />
         </div>
         <div class="box py-0">
           <div class="field">
@@ -267,22 +335,24 @@
           <div class="field">
             <div class="control">
               <button
-                title="copy to clipboard"
-                class="button is-small clipboard"
+                data-tippy-followCursor="false"
+                data-tippy-content="Copy to Clipboard"
+                class="button clipboard"
                 disabled={_.isEmpty(preview)}
                 on:click={copyToClipboard}
               >
-                <span class="icon is-small">
-                  <i class="fas fa-clipboard" />
+                <span class="icon">
+                  <i class="fas fa-copy" />
                 </span>
               </button>
               <button
-                title="save"
-                class="button is-small save"
+                data-tippy-followCursor="false"
+                data-tippy-content="Save"
+                class="button save"
                 disabled={_.isEmpty(preview)}
                 on:click={openSaveModal}
               >
-                <span class="icon is-small">
+                <span class="icon">
                   <i class="fas fa-floppy-disk" />
                 </span>
               </button>
@@ -292,7 +362,7 @@
         </div>
       </div>
       <div class="column is-7 py-0">
-        <div class="box px-3 mb-3">
+        <div class="box p-3 mb-3">
           <Dropzone
             multiple={false}
             inputElement={input}
@@ -360,14 +430,14 @@
     float: right;
     position: absolute;
     right: 0;
-    z-index: 10;
+    z-index: 1;
   }
 
   .save {
     float: right;
     position: absolute !important;
     right: 40px;
-    z-index: 10;
+    z-index: 1;
   }
 
   .table-wrapper {
